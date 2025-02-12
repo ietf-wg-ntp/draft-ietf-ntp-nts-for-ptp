@@ -1,0 +1,4193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd" [
+
+
+<!ENTITY RFC2119 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.2119.xml">
+<!ENTITY RFC4493 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.4493.xml">
+<!ENTITY RFC4543 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.4543.xml">
+<!ENTITY RFC5116 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.5116.xml">
+<!ENTITY RFC5297 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.5297.xml">
+<!ENTITY RFC7301 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.7301.xml">
+<!ENTITY RFC7525 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.7525.xml">
+<!ENTITY RFC8174 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.8174.xml">
+<!ENTITY RFC8446 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.8446.xml">
+<!ENTITY RFC8915 SYSTEM "http://xml.resource.org/public/rfc/bibxml/reference.RFC.8915.xml">
+]>
+
+
+
+<?rfc toc="yes"?>        <!-- generate a ToC -->
+<?rfc tocindent="yes"?>
+<?rfc tocdepth="4"?>     <!-- the number of levels of subsections in ToC. default: 3 -->
+<?rfc sortrefs="yes"?>   <!-- sort the reference entries alphabetically -->
+<?rfc symrefs="yes"?>    <!-- use symbolic references tags, i.e, [RFC2119] instead of [1] -->
+<?rfc strict="yes"?>     <!-- give errors regarding ID-nits and DTD validation -->
+<?rfc compact="yes"?>    <!-- do not start each main section on a new page -->
+<?rfc subcompact="yes"?>  <!-- keep one blank line between list items -->
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc version="3"?>      <!-- xml2rfc v2v3 conversion 2.38.1 -->
+
+<rfc category="std" docName="draft-ietf-ntp-nts-for-ptp-01" ipr="trust200902">
+  <front>
+    <title abbrev="NTS4PTP">NTS4PTP - Network Time Security for the Precision Time Protocol</title>
+
+    <author initials="M." surname="Langer" fullname="Martin Langer">
+      <organization abbrev="PTB" >Physikalisch-Technische Bundesanstalt (PTB)</organization>
+      <address>
+	  <postal>
+          <street>Bundesallee 100</street>
+          <city>Braunschweig</city>
+          <region></region>
+          <code>38116</code>
+          <country>Germany</country>
+        </postal>
+        <email>martin.langer@ptb.de</email>
+      </address>
+    </author>
+
+	<author initials="R." surname="Bermbach" fullname="Rainer Bermbach">
+      <organization abbrev="Ostfalia University" >Ostfalia University of Applied Sciences</organization>
+      <address>
+	  	  <postal>
+          <street>Salzdahlumer Straße 46/48</street>
+          <city>Wolfenbüttel</city>
+          <region></region>
+          <code>38302</code>
+          <country>Germany</country>
+        </postal>
+        <email>r.bermbach@ostfalia.de</email>
+      </address>
+    </author>
+
+
+    <date day="12" month="February" year="2025"/>
+
+    <area>Internet</area>
+     <workgroup>Network Time Protocols</workgroup>
+    <keyword>Internet-Draft</keyword>
+
+    <abstract>
+
+<t>
+This document specifies an automatic key management service for the integrated 
+security mechanism (prong A) of IEEE Std 1588™-2019 (PTPv2.1) described there 
+in Annex P. This key management follows the immediate security processing 
+approach of prong A and extends the NTS Key Establishment protocol defined 
+in IETF RFC 8915 for securing NTPv4. The resulting NTS for PTP 
+(NTS4PTP) protocol provides a security solution for all PTP modes 
+and operates completely independent of NTPv4. It also provides measures
+against known attack vectors targeting PTP. 
+</t>
+
+    </abstract>
+
+  </front>
+ 
+
+  <middle>
+
+<section anchor="introduction" title="Introduction">  <!-- oberste Ebene -->
+
+
+<t>In its Annex P the IEEE Std 1588-2019 (<xref target="IEEE1588-2019"/>, Precision 
+Time Protocol version 2.1, PTPv2.1) defines a comprehensive PTP security concept based 
+on four prongs (A to D). Prong A incorporates an immediate security processing approach 
+and specifies in section 16.14 an extension to secure PTP messages by means of an 
+AUTHENTICATION TLV (AuthTLV) containing an Integrity Check Value (ICV). For PTP 
+instances to use the securing mechanism, a respective key needs to be securely distributed 
+among them. Annex P gives requirements for such a key management system and mentions 
+potential candidates without further specification, but allows other solutions as long 
+as they fulfill those requirements.
+</t>
+
+<t>Since many time server appliances support both, the Precision Time Protocol (PTP) and the 
+Network Time Protocol (NTP), it should be easier for the manufacturer of these devices 
+and the network operator if PTP and NTP use a key management system based on the same technology.
+
+The Network Time Security (NTS) protocol was specified by the 
+Internet Engineering Task Force (IETF) to protect the integrity of NTP messages 
+<xref target="RFC8915"/>. Its NTS Key Establishment sub-protocol is secured by the Transport 
+Layer Security (TLS 1.3, IETF RFC 8446 <xref target="RFC8446"/>) mechanism. TLS is used 
+to protect numerous popular network protocols, so it is present in many networks.</t> 
+
+
+<t>This document specifies an automatic key management service, NTS for PTP, short NTS4PTP, for 
+the immediate security processing in prong A. The solution <xref target="Langer_et_al._2022"/>, 
+<xref target="Langer_et_al._2020"/> is based on and expands the NTS Key Establishment protocol 
+defined in IETF RFC 8915 <xref target="RFC8915"/> for securing NTP, but works completely 
+independent of NTP. In addition, this document introduces a new sub-protocol, the NTS Time 
+Server Registration (NTS-TSR) protocol, defining the communication between PTP unicast servers 
+(grantors) with the NTS-Key Establishment server (NTS-KE server). (In NTS for NTP the specification 
+of the communication between NTS time server and NTS-KE server has been left open.)  
+<xref target="fig-NTS4PTP-participants"/> depicts the participants of the NTS4PTP protocol and the sub-protocols they use.</t>
+
+
+
+      <figure anchor="fig-NTS4PTP-participants" title="Communication of PTP instances with the NTS-KE server using the NTS-KE and NTS-TSR sub-protocols">
+        <artwork><![CDATA[
+
+               +-------------------------------+
+               |                               |
+               |         NTS-KE Server         |
+               |   (Key Distribution Center)   |
+               |                               |
+               +-------------------------------+
+                 ^  ^  ^                     ^
+                 |  |  |                     |
+             NTS-KE protocol          NTS-TSR protocol
+                 |  |  |                     |
+       +---------+  |  +----------+          +-----+ 
+       |            |             |                |
+       V            V             V                V 
++-----------+ +-----------+ +-----------+    +-----------+
+|    PTP    | |    PTP    | |    PTP    |    |    PTP    |  
+|   Master  | |  Slaves   | | Requester |    |  Grantor  |
+|(multicast)| |(multicast)| | (unicast) |    | (unicast) |
++-----------+ +-----------+ +-----------+    +-----------+  
+
+ ]]>
+        </artwork>
+      </figure>
+
+<t>For PTP multicast communication the PTP grandmaster as well as all participating PTP slaves 
+use the NTS-KE protocol to obtain the security association (SA), i.e. key, lifetime etc. 
+for a specific group. 
+
+PTPv2.1 does not know groups, but distinguishes between PTP domains and profiles in order 
+to separate different PTP networks from each other. NTS4PTP allows the administrator to 
+freely define groups, be it using domains and profiles or any other  method to assign the 
+logically separated PTP networks to their own SA (see first paragraph of 
+<xref target="exchange-group-based"/>). For such PTP multicast or 
+mixed multicast/unicast communication, NTS4PTP defines the group-based mode, short GrM.</t>
+
+<t>For securing a PTP unicast communication a potential grantor (time server) uses the 
+NTS-TSR protocol to register with the NTS-KE server. Thereby, ticket key, lifetime etc. 
+for encrypting a so-called ticket are exchanged. A potential PTP unicast client (requester) 
+then again uses the NTS-KE protocol to obtain the security association, i.e. unicast key, 
+lifetime etc., as well as an encrypted ticket for the unicast communication with the specific 
+grantor from the NTS-KE server. Thereafter, the ticket is transported from requester to grantor 
+attached to a PTP signaling message <xref target="IEEE1588-2019"/> to establish a so-called 
+unicast contract for delivering PTP time information. The (ticket key-) encrypted ticket holds 
+all necessary information for the grantor to identify the requester as well as the (unicast) 
+key used to secure and check the PTP messages between them. 
+For this PTP unicast communication (also called negotiated PTP unicast), NTS4PTP defines 
+the ticket-based mode, short TiM.</t>
+
+
+<t>Though the key management for PTP is based on the NTS Key Establishment (NTS-KE) protocol 
+for NTP, it works completely independent of NTP. The key management system uses the procedures 
+described in IETF RFC 8915 for the NTS-KE protocol and expands it with new NTS messages for PTP. It 
+may be applied in a key establishment server that already manages NTP but 
+can also be operated only handling key establishment for PTP. Even when the PTP network is 
+isolated from the Internet, a key establishment server can be installed in that network 
+providing the PTP instances with necessary key and security parameters.</t>
+
+<t>The NTS-KE server may often be implemented as a separate unit. It also may be collocated 
+with a PTP instance, e.g., the Grandmaster. In the latter case communication between the NTS-KE 
+server program and the PTP instance program needs to be implemented in a secure way if TLS 
+communication (e.g., via local host or inter-process communication) is not or cannot be used.</t> 
+
+<t>Using the expanded NTS Key Establishment protocol and the newly defined NTS Time Server 
+Registration protocol for the NTS key management for PTP, NTS4PTP provides the two principle 
+approaches specified in this document:</t>
+
+
+
+
+<t>1. Group-based mode (GrM)</t>
+            <t><list style="symbols">
+              <t>suitable for the PTP multicast and mixed multicast/unicast communication model,</t>
+			  <t>definition of one or more security groups in the PTP network,</t>
+			  <t>designed to secure 1:n communication</t>
+            </list>
+            </t>
+<t>2. Ticket-based mode (TiM)</t>
+            <t><list style="symbols">
+			  <t>suitable for the PTP unicast communication model between a PTP requester and grantor,</t>
+			  <t>designed to secure 1:1 communication</t>			  
+            </list>
+            </t>
+
+
+<t>For these modes, the NTS key management for PTP defines six new NTS messages, see <xref target="fig-NTS-messages"/>. 
+All messages are constructed from specific records as described in (see <xref target="nts-records"/>):</t>
+
+<t> </t>
+            <t><list style="symbols">		  
+			  <t>PTP Key Request message (use in GrM and TiM, see <xref target="key-request"/>)</t>			  
+			  <t>PTP Key Response message (use in GrM and TiM, see <xref target="key-response"/>)</t>
+              <t>PTP Registration Request message (use in TiM, see <xref target="registration-request"/>)</t>
+              <t>PTP Registration Response message (use in TiM, see <xref target="registration-response"/>)</t>
+              <t>PTP Registration Revoke message (use in TiM, see <xref target="registration-revoke"/>)</t>
+            </list>
+          </t>
+
+      <figure anchor="fig-NTS-messages" title="The new messages of NTS4PTP">
+        <artwork><![CDATA[
++---------------------------------------------------------+
+|                     NTS4PTP                             |
++---------------------------------------------------------+
+
++-----------------------+  +------------------------------+
+| NTS Key Establishment |  | NTS Time Server Registration |
+|   (NTS-KE) Protocol   |  |     (NTS-TSR) Protocol       |
+|     (GrM & TiM)       |  |         (TiM only)           |
++----------+------------+  +--------------+---------------+
+           |                              |             
+ +---------+                +-------------+             
+ |                          |
+ |   +------------------+   |   +-------------------------+
+ +-->| PTP Key Request  |   +-->|PTP Registration Request |   
+ |   +------------------+   |   +-------------------------+
+ |   +------------------+   |   +-------------------------+   
+ +-->| PTP Key Response |   +-->|PTP Registration Response|
+ :   +------------------+   |   +-------------------------+
+ :   ....................   |   +-------------------------+
+ :...:*NTP Key Request* :   +-->|PTP Registration Revoke  |
+ :   ....................       +-------------------------+
+ :   ....................   
+ :...:*NTP Key Response*:   
+     ....................   
+
+ *messages for NTP described unnamed in [RFC8915]
+ ]]>
+        </artwork>
+      </figure>
+
+
+<section anchor="goals" title="Security Goals and Limitations">  <!-- 2. oberste Ebene -->
+
+
+
+<t>The security measures described in section 16.14 of the PTPv2.1 standard 
+<xref target="IEEE1588-2019"/> focus in particular on the requirements that a key 
+management system for PTP must meet to enable the protection of PTP messages. The 
+application of the exchanged security parameters by the key management system is 
+currently not sufficiently specified in IEEE Std 1588-2019 to protect the PTP messages 
+against replay attacks, start-up replay and spoofing attacks. Therfore, this 
+document describes its own mechanisms for applying the exchanged security parameters 
+in PTP to secure the PTP messages. Specification gaps in section 16.14 of the 
+PTPv2.1 standard do not affect NTS4PTP.
+</t>
+
+<t>However, it should be emphasized that complete protection of the Precision Time 
+Protocol is not technically feasible, since time distribution is primarily based 
+on one-way time transmission. This technology is fundamentally vulnerable to delay 
+attacks and cannot be prevented by any cryptographic means. The PTPv2.1 standard 
+describes other mechanisms in Annex P, such as network redundancy and monitoring, 
+to mitigate these attacks (see also <xref target="Langer_2023"/>, section 4.3.2 ff,
+and <xref target="Langer_et_al._2019"/>). 
+Nevertheless, these measures are outside the scope of a cryptographic security solution.
+</t>
+
+<t>NTS4PTP provides authenticity and integrity of PTP messages as well as protection 
+against attacks such as packet manipulation and replay (see also 
+<xref target="Langer_et_al._2022"/>). NTS4PTP does not provide protection against 
+delay attacks.
+</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section> <!--anchor="notational-conventions" title="Notational Conventions"> -->  <!-- 2. oberste Ebene -->
+<name>Requirements Language</name>
+
+<t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/>
+when, and only when, they appear in all capitals, as shown here.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+<section anchor="terms-abbreviations" title="Terms and Abbreviations">  <!-- 2. oberste Ebene -->
+
+
+	<texttable anchor="abbrev" title="Terms and abbreviations ">
+   
+
+		<!-- table header:  -->
+        <ttcol align="left">Term</ttcol>
+        <ttcol align="left">Description</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>AEAD</c>
+          <c>Authenticated Encryption with Associated Data <xref target="RFC5116"/></c>
+ 		<!-- next row:  -->
+          <c>AES</c>
+          <c>Advanced Encryption Standard, also: Rijndael</c>
+		<!-- next row:  -->
+          <c>Authentication TLV (AuthTLV)</c>
+          <c>PTPv2.1 extension that provides authenticity and integrity protection for PTP messages <xref target="IEEE1588-2019"/></c>
+ 		<!-- next row:  -->
+          <c>ALPN</c>
+          <c>Application-Layer Protocol Negotiation <xref target="RFC7301"/></c>
+ 		<!-- next row:  -->
+          <c>CMAC</c>
+          <c>Cipher-based Message Authentication Code, see also MAC</c>
+ 		<!-- next row:  -->
+          <c>Container, Container records</c>
+          <c>Container records (short: container) comprise a set of NTS records in its 
+		     record body that serve a specific purpose, e.g., the Current Parameters container record.</c>
+ 		<!-- next row:  -->
+          <c>CSPRNG</c>
+          <c>Cryptographically Secure Pseudorandom Number Generator </c>
+ 		<!-- next row:  -->
+          <c>DoS</c>
+          <c>Denial of Service</c>
+ 		<!-- next row:  -->
+          <c>DDoS</c>
+          <c>Distributed Denial of Service</c>
+ 		<!-- next row:  -->
+          <c>GMAC</c>
+          <c>Galois Message Authentication Code, see also MAC</c>
+ 		<!-- next row:  -->
+          <c>Grace Period</c>
+          <c>Defines a period of time during which security parameters are accepted for 
+		     a short time after their lifetime has expired</c>
+ 		<!-- next row:  -->
+          <c>Group</c>
+          <c>NTS4PTP uses the term to describe PTP entities in a PTP multicast setup (e.g., 
+			 master, slave, ...) that are authorized for a common security association 
+			 to secure and verify PTP messages between them.
+			 </c>
+ 		<!-- next row:  -->
+          <c>GrM</c>
+          <c>Group-based mode of NTS4PTP</c>
+ 		<!-- next row:  -->
+          <c>Group Key</c>
+          <c>Key used for authentication of PTP messages in group-based mode (GrM)</c>
+ 		<!-- next row:  -->
+          <c>HMAC</c>
+          <c>Hash-based Message Authentication Code, see also MAC</c>
+ 		<!-- next row:  -->
+          <c>ICV</c>
+          <c>Integrity Check Value, result of a cryptographic function used to detect 
+		     unauthorized modifications of a PTP message, field in the Authentication TLV</c>
+ 		<!-- next row:  -->
+          <c>IEEE 802.3</c>
+          <c>Standards collection defining the physical layer and data link layer's 
+		     media access control (MAC) of wired Ethernet, transport mode in PTP</c>
+ 		<!-- next row:  -->
+          <c>IP, IPv4, IPv6</c>
+          <c>Internet Protocol, network layer communications protocol, version 4 or 
+		     version 6, part of the Internet protocol suite</c>
+ 		<!-- next row:  -->
+          <c>IV</c>
+          <c>Initialization Vector, for example used with some MAC algorithms</c>
+ 		<!-- next row:  -->
+          <c>Lifetime</c>
+          <c>Specifies the validity period of the security parameters in seconds, 
+		     which is counted down</c>
+ 		<!-- next row:  -->
+          <c>MAC address</c>
+          <c>Medium Access Control address, unique identifier used as a network 
+		     address within a network segment</c>
+ 		<!-- next row:  -->
+          <c>MAC algorithm</c>
+          <c>Message Authentication Code, short piece of information used for 
+		     authenticating and integrity-checking of a message</c>
+ 		<!-- next row:  -->
+          <c>NTP</c>
+          <c>Network Time Protocol <xref target="RFC5905"/></c>   
+ 		<!-- next row:  -->
+          <c>NTS4PTP</c>
+          <c>NTS for PTP, variant of NTS to provide key management to PTP</c>
+ 		<!-- next row:  -->
+          <c>NTS</c>
+          <c>Network Time Security <xref target="RFC8915"/></c>
+  		<!-- next row:  -->
+          <c>NTS-KE</c>
+          <c>Network Time Security Key Establishment protocol</c>
+ 		<!-- next row:  -->
+          <c>NTS-TSR</c>
+          <c>Network Time Security Time Server Registration protocol</c>
+  		<!-- next row:  -->
+          <c>OCSP</c>
+          <c>Online Certificate Status Protocol <xref target="RFC6960"/></c>
+ 		<!-- next row:  -->
+          <c>PKI</c>
+          <c>Public Key Infrastructure</c>
+ 		<!-- next row:  -->
+          <c>PortIdentity</c>
+          <c>Specifies a specific PTP port</c>
+  		<!-- next row:  -->
+          <c>PTP</c>
+          <c>Precision Time Protocol <xref target="IEEE1588-2019"/></c>
+ 		<!-- next row:  -->
+          <c>Record, NTS record</c>
+          <c>Special NTS type-length-value data structure defining specific parameters; 
+		     records build the respective NTS messages (differs from the TLV format of PTP)</c>
+ 		<!-- next row:  -->
+          <c>SA</c>
+          <c>Security Association, description of the set of security parameters necessary to 
+		     provide security services (e.g., authentication and integrity) between different 
+			 entities sharing the same SA</c>
+ 		<!-- next row:  -->
+          <c>SAD</c>
+          <c>Security Association Database</c>
+ 		<!-- next row:  -->
+          <c>sdoId</c>
+          <c>Standards Development Organization Identifier, attribute for providing isolation 
+		     of PTP Instances using different PTP profiles; in NTS4PTP it may form the group 
+			 number in combination with the PTP domain number</c>
+ 		<!-- next row:  -->
+          <c>SPP</c>
+          <c>Security Parameter Pointer</c>
+ 		<!-- next row:  -->
+          <c>TCP</c>
+          <c>Transmission Control Protocol, part of the Internet protocol suite</c>
+ 		<!-- next row:  -->
+          <c>Ticket</c>
+          <c>NTS record which contains the encrypted security parameters that a grantor needs for 
+		     a secured PTP unicast connection to the requester</c>
+ 		<!-- next row:  -->
+          <c>Ticket Key</c>
+          <c>Encryption key for the ticket, negotiated between NTS-KE server and grantor during 
+		     the registration process (different from unicast key)</c>
+ 		<!-- next row:  -->
+          <c>TC, Transparent Clock</c>
+          <c>Device in a PTP network with multiple PTP ports (switch) which measures its transit 
+		     time and provides it in a correction field of the PTP message </c>
+ 		<!-- next row:  -->
+          <c>Ticket TLV</c>
+          <c>TLV for carrying the ticket from requester to grantor within a PTP Signaling message for unicast request </c>
+ 		<!-- next row:  -->
+          <c>TiM</c>
+          <c>Ticket-based mode for NTS4PTP</c>
+ 		<!-- next row:  -->This document describes 
+          <c>TLS</c>
+          <c>Transport Layer Security <xref target="RFC8446"/></c>
+ 		<!-- next row:  -->
+          <c>TLV</c>
+          <c>Data set containing a type, length, and value field. Used in PTPv2.1 <xref target="IEEE1588-2019"/>, 
+		     compare to Authentication TLV and Ticket TLV</c>
+ 		<!-- next row:  -->
+          <c>UDP</c>
+          <c>User Datagram Protocol, part of the Internet protocol suite</c>
+ 		<!-- next row:  -->
+          <c>Unicast Key</c>
+          <c>Used to secure the PTP messages between requester and grantor (different from ticket key)</c>
+ 		<!-- next row:  -->
+          <c>Update Period</c>
+          <c>During the update period new security parameters are available at the NTS-KE server, 
+		     resp. grantors should re-register with the NTS-KE server</c>
+ 		<!-- next row:  -->
+          <c>X.509</c>
+          <c>Standard to form X.509 certificates <xref target="ITU-T_X.509"/> </c>
+		<!-- next row:  -->
+		
+    </texttable>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+
+
+<section anchor="NTS-key-management" title="Key Management for PTP Using Network Time Security">  <!-- oberste Ebene -->
+
+<t>After the rundown of the different PTP instances and the sub-protocols they use for communication 
+with the NTS Key Establishment (NTS-KE) server in the introduction, the following sections specify 
+the setup and use of TLS 1.3 to secure the communication with the NTS-KE server, before the message 
+exchange for both, the group-based mode as well as the ticket-based mode is described in detail in 
+<xref target="exchange-group-based"/> and <xref target="exchange-ticket-based"/>. 
+More general topics as key update, authentication and authorization etc. are covered in 
+<xref target="general-topics"/>.</t>
+
+
+<section anchor="TLS-with-NTS-KE" title="Setup of a TLS Communication Channel with the NTS-KE Protocol">  <!-- 2. oberste Ebene -->
+
+<t>TLS is a layer five protocol that runs on TCP over IP. Therefore, PTP implementations that 
+support NTS-based key management need to support TCP and IP (at least on a separate management port).</t>
+
+<t>A PTP instance wanting to request a key using the NTS-KE protocol defined in <xref target="RFC8915"/>,
+first starts a TLS 1.3 connection to the NTS-KE server.</t>
+
+
+<t>The PTP instance connects to the NTS-KE server on the NTS TCP port (port number 4460). Then 
+both parties perform a TLS handshake to establish a TLS 1.3 communication channel. The details 
+of the TLS handshake are specified in IETF RFC 8446 <xref target="RFC8446"/>. </t>
+
+<t>Implementations MUST conform to the rules stated in Section 3 "TLS Profile for Network Time 
+Security" of IETF RFC 8915 <xref target="RFC8915"/>.</t>
+
+
+<!--
+<t><list>
+	 <t> <spanx style="emph">&quot;Network Time Security makes use of TLS for NTS key 
+	     establishment.</spanx><vspace blankLines="1" /></t>
+	 <t> <spanx style="emph">Since the NTS protocol is new as of this publication, no 
+	     backward-compatibility concerns exist to justify using obsolete, insecure, or 
+		 otherwise broken TLS features or versions.</spanx><vspace blankLines="1" /></t> 
+	 <t> <spanx style="emph">Implementations MUST conform with RFC 7525 </spanx>
+	     <xref target="RFC7525"/><spanx style="emph"> or with a later revision of BCP 195.
+		 </spanx><vspace blankLines="1" /></t>
+	 <t> <spanx style="emph">Implementations MUST NOT negotiate TLS versions earlier than 
+	     1.3 </spanx><xref target="RFC8446"/><spanx style="emph"> and MAY refuse to negotiate 
+		 any TLS version that has been superseded by a later supported version.</spanx>
+		 <vspace blankLines="1" /></t>
+	 <t> <spanx style="emph">Use of the Application-Layer Protocol Negotiation Extension 
+	     </spanx><xref target="RFC7301"/><spanx style="emph"> is integral to NTS, and support 
+		 for it is REQUIRED for interoperability ... &quot;</spanx></t>
+</list></t>
+-->
+
+
+
+<t>The client starts the TLS 1.3 handshake with a 'Client Hello' message to the NTS-KE server 
+containing the Application Layer Protocol Negotiation (ALPN) <xref target="RFC7301"/> extension 
+containing "ntske/1", which refers to the NTS Key Establishment as the subsequent protocol. 
+The server responds with a "Server Hello" message sending its certificate and feasible cipher 
+suites as well as requesting the client's certificate using a TLS 'CertificateRequest'. 
+(The latter does not conflict to the procedure in NTS for NTP.)</t>
+
+
+<t>Afterwards, the client authenticates the server using the root CA certificate or by means of the 
+Online Certificate Status Protocol (OCSP, IETF RFC 6960) <xref target="RFC6960"/>. 
+In the same way, the server authenticates the client, if it had sent its certificate 
+(which is always necessary with NTS4PTP, in contrast to NTS for NTP.) 
+After the authentication procedure both, client and server agree on the cipher 
+suite and then establish a secured channel that ensures authenticity, integrity and confidentiality 
+for subsequent NTS messages. </t>
+
+
+<t>Once the TLS session is established, the PTP instance will ask for a key as well as the 
+associated security parameters using the new NTS message PTP Key Request (see <xref target="key-request"/>). 
+
+The NTS-KE server will respond with a PTP Key Response message (see <xref target="key-response"/>). </t>
+
+<t>NTS for NTP postulates in IETF RFC 8915 <xref target="RFC8915"/> that after completion of 
+a request/response sequence the TLS session is to be closed. For NTS4PTP  the same procedure 
+can be used. Additionally, the NTS-KE server may keep the TLS session open until a short timeout 
+configured by the admin expires or the 'close notify' arrives. This allows the PTP instance to 
+make another NTS request without starting a new TLS handshake. Finally, the NTS-KE server also 
+sends a 'close notify' to the PTP instance and closes the TLS channel. </t>
+
+
+
+<t>With the key and other information received, the PTP instance can take part in the secured 
+PTP communication in the different modes of operation.</t>
+
+<t>After the reception of the first set of security parameters the PTP instance may resume the 
+TLS session according to IETF RFC 8446 <xref target="RFC8446"/>, 
+Section 4.6.1, allowing the PTP instance to skip the TLS version and algorithm negotiations. 
+If TLS Session Resumption (<xref target="RFC8446"/>, Section 2.2) is used and supported by the 
+NTS-KE server, a suitable lifetime (max. 24 hrs) for the TLS session key must be defined to 
+not open the TLS connection for security threats. If the NTS-KE server does not support TLS 
+resumption, a full TLS handshake must be performed.</t>
+
+
+<t>As the TLS session provides authentication, but not authorization additional means have 
+to be used for the latter (see <xref target="upfront-authorization"/>). </t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section anchor="TLS-with-NTS-TSR" title="Setup of a TLS Communication Channel with the NTS-TSR Protocol">  <!-- 2. oberste Ebene -->
+
+<t>As already mentioned and shown in <xref target="fig-NTS4PTP-participants"/> and <xref target="fig-NTS-messages"/>, 
+the new NTS Time Server Registration protocol is used for registering a grantor with the NTS-KE server 
+(ticket-based mode only). Thereby, the new messages PTP Registration Request message, PTP Registration 
+Response message and PTP Registration Revoke message are applied.</t>
+
+<t>The setup of the TLS channel in this ticket-based mode (TiM) is handled in the same way as described 
+above for the NTS-KE protocol, see <xref target="TLS-with-NTS-KE"/>. The only difference lies in the ALPN used, 
+which is now "ntstsr/1". </t>
+
+<t>Once the TLS session is established, the grantor will register with the NTS-KE server using the 
+NTS message PTP Registration Request (see <xref target="registration-request"/>). The NTS-KE server will respond with a 
+PTP Registration Response message (see <xref target="registration-response"/>) containing ticket key, lifetime etc.</t>
+
+<t>When the PTP Registration Request message was responded with a PTP Registration Response, the TLS session 
+is closed.
+</t>
+
+<t>Also using a TLS connection with the NTS-KE server a grantor can cancel its registration with a PTP 
+Registration Revoke message (see <xref target="registration-revoke"/>).</t>
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+<section anchor="exchange-group-based" title="NTS Message Exchange for Group-Based Mode">  <!-- 2. oberste Ebene -->
+
+<t>As described in <xref target="TLS-with-NTS-KE"/>, a PTP instance wanting to join a secured 
+PTP communication in the group-based modes contacts the NTS-KE server starting the establishment 
+of a secured TLS connection using the NTS-KE protocol (ALPN: ntske/1). Then, the client continues 
+with a PTP Key Request message (see <xref target="key-request"/>), asking for for a security 
+association of a specific group (GrM-SA) as shown in <xref target="fig-group-based"/>. 
+
+The NTS-KE server identifies the respective sub-protocol by means of the ALPN and analyses the
+contents of the Next Protocol Negotiation record. If it is PTP the server examines whether the client 
+had sent its certificate and that it is valid. Finally, it checks whether the client is authorized 
+to join the requested group.
+If everything is ok the NTS-KE server generates the respective PTP Key Response message 
+(see <xref target="key-response"/>) for the requesting client with all the necessary data to join the group communication.
+
+Else, it contains a respective error code if the PTP instance 
+is not allowed to join the group. This procedure is necessary for all parties, which are or 
+will be members of that PTP group including the Grandmaster and other special participants, 
+e.g., Transparent Clocks. As mentioned above, this not only applies to the multicast communication model but also 
+to mixed multicast/unicast communication (former hybrid mode) where the explicit unicast communication 
+uses the multicast group key received from the NTS-KE server. The group number for both modes 
+is defined by the administrator, as described in <xref target="association-mode"/>.</t>
+ 
+
+      <figure anchor="fig-group-based" title="Message exchange for the group-based mode (GrM)">
+        <artwork><![CDATA[
+Secured
+PTP Network       PTP Instance          NTS-KE Server
+
+ |                      |         TLS:        |
+ |                  TLS |== PTP Key Request =>| Response contains:
+ |              secured |                     | GroupID, security
+ |        communication |         TLS:        | parameters, group
+ |                      |<= PTP Key Response =| key, validity 
+ |                      |                     | period etc.
+ |    Secured PTP:      |                     |
+ |--- Announce -------->|  )                  |
+ |                      |  )                  |
+ |    Secured PTP:      |  )                  |
+ |-- Sync & Follow_Up ->|  )                  |
+ |                      |  ) Secured          |
+ |                      |  ) PTP messages     |
+ |    Secured PTP:      |  ) using            |
+ |<-- Delay_Req --------|  ) group key        |
+ |                      |  )                  |
+ |    Secured PTP:      |  )                  |
+ |--- Delay_Resp ------>|  )                  |
+ |                      |  )                  |
+ V                      V                     V
+
+Legend:        TLS:       Authenticated & encrypted
+          =============>  TLS communication
+
+           Secured PTP:   Group key-authenticated
+          ------------->  PTP communication
+ ]]>
+        </artwork>
+      </figure>
+
+
+<!--
+<t>Additionally, besides multicast and mixed multicast/unicast mode, a group of two (or few 
+more) PTP instances can be configured, practically implementing a special group-based unicast 
+communication mode, the group-of-2 (Go2) mode. </t>
+
+
+<t>This Go2 mode requires additional administration in advance defining groups-of-2 and supplying 
+them with an additional attribute in addition to the group number mentioned for the other 
+group-based modes – the subGroup attribute in the Association Mode record (see <xref target="association-mode"/>) of 
+the PTP Key Request message. So, addressing for Go2 is achieved by use of the group number 
+derived from domain number, sdoId, and the additional attribute subGroup. Communication in 
+that mode is performed using multicast addresses. If the latter is undesirable, unicast 
+addresses can be used but the particular IP or MAC addresses of the communication partners 
+need to be configured upfront, too.</t>
+
+<t>In spite of its specific name, Go2 allows more than two participants, for example additional 
+Transparent Clocks. All participants in that subgroup need to be configured respectively. 
+(To enable the NTS-KE server to supply the subgroup members with the particular security data 
+the respective certificates may reflect permission to take part in the subgroup. Else another 
+authorization method is to be used.)</t>
+
+<t>Having predefined the Go2s the key management for this mode of operation follows the same 
+procedure (see <xref target="fig-group-based"/>) and uses the same NTS messages as the other 
+group-based modes. Both participants, the Group-of-2 requester and the respective grantor need 
+to have received their security parameters including key etc. before secure PTP communication 
+can take place.</t>
+
+-->
+
+<t>After the NTS Key Establishment messages for the group-based mode (GrM) have been exchanged, 
+the secured PTP communication can take place using the security association(s) communicated.
+The participants of the PTP network are now able to use the group key to verify secured PTP 
+messages of the corresponding group or to generate secured PTP messages itself. In order to 
+do this, the PTP node applies the group key together with the MAC algorithm to the PTP packet 
+to generate the ICV transported in the AUTHENTICATION TLV of the PTP message.</t>
+
+<!-- <t>The key management for these modes works relatively simple and needs only the above mentioned 
+three NTS messages: PTP Key Request, PTP Key Response or PTP Refusal. The group number used for 
+addressing is automatically derived from the configured attributes domain number and sdoID.</t> 
+
+<t>Additionally, besides multicast and hybrid mode, a (multicast) group of two PTP instances can 
+be configured, practically implementing a special unicast communication.</t> -->
+
+<t>The key management for this mode works relatively simple and needs only the above mentioned 
+two NTS messages: PTP Key Request and PTP Key Response.</t>
+
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+<section  anchor="exchange-ticket-based" title="NTS Message Exchange for the Ticket-Based Mode">  <!-- 2. oberste Ebene -->
+
+<t>The ticket-based mode (TiM) for negotiated unicast connections ensures end-to-end security 
+between the two PTP communication partners, requester and grantor, and is therefore only 
+suitable for PTP unicast where no group binding exists. 
+Thus, this model scales excellently with the number of connections. TiM also allows free MAC 
+algorithm negotiation.</t>
+
+<t>In PTP unicast mode using unicast message negotiation (<xref target="IEEE1588-2019"/>, 
+Section 16.1) any potential instance (the grantor) which can be contacted by other PTP instances 
+(the requesters) needs to register upfront with the NTS-KE server as depicted in <xref target="fig-ticket-based"/>.
+For the registration, again a TLS channel has to be set up using the new NTS Time Server Registration 
+sub-protocol with the ALPN "ntstsr/1" as described in <xref target="TLS-with-NTS-TSR"/>.
+This also ensures the mutual authentication of grantor and NTS-KE server.</t>
+
+
+      <figure anchor="fig-ticket-based" title="Message exchange for ticket-based unicast mode (TiM)">
+        <artwork><![CDATA[
+     PTP Requester         NTS-KE Server            PTP Grantor
+           
+             |                 |         TLS:        |Grantor
+             |    KE generates |<= PTP Registration =|registers
+             |      ticket key |       Request       |upfront
+             |                 |                     |
+             |                 |        TLS:         |gets
+             |        KE sends |== PTP Registration >|ticket
+             |      ticket key |       Response      |key to
+             |                 |                     |decrypt
+             |                 |                     |tickets
+             :                 :                     :
+ PTP instance|     TLS:        |                     |
+wants unicast|== PTP Key =====>| KE generates        |
+communication|   Request       | and sends           |
+             |                 | unicast key         |
+             |     TLS:        | & encrypted         |
+             |<= PTP Key ======| ticket              |
+             |   Response      |                     |
+             |                 |                     |decrypts
+      Unicast|                 |                     |ticket,
+      request|   Secured PTP:  |                     |extracts
+     contains|-- Unicast  -------------------------->|containing
+       ticket|   Request       |                     |unicast key
+             |                 |                     |
+             |   Secured PTP:  |                     |Grantor uses
+             |<- Grant ------------------------------|unicast key
+             |                 |                     |
+             V                 V                     V
+
+Legend:        TLS:       Authenticated & encrypted
+          =============>  TLS communication
+
+           Secured PTP:   Unicast key-authenticated
+          ------------->  PTP communication
+ ]]>
+        </artwork>
+      </figure>
+
+
+
+<t><spanx style="emph">(Note: As any PTP instance may request unicast messages from any other instance the terms 
+requester and grantor as used in the standard suit better than talking about slave respectively 
+master. In unicast PTP, the grantor is typically a PTP port in the MASTER state, and the requester 
+is typically a PTP port in the SLAVE state. However, all PTP ports are allowed to grant and request 
+unicast PTP message contracts regardless of which state they are in. A PTP port in MASTER state 
+may be requester, a port in SLAVE state may be a grantor.)</spanx></t>
+
+
+<t> The registration of a PTP grantor is performed via a PTP Registration Request message 
+(see <xref target="registration-request"/>). The NTS-KE server answers with a PTP Registration 
+Response message (see <xref target="registration-response"/>). If no delivery of security data 
+is possible for whatever reason, the PTP Registration Response message contains a respective 
+error code.</t>
+
+
+<t>With the reception of the PTP Registration Response message, the grantor holds a ticket key known 
+only to the NTS-KE server and the registered grantor. With this ticket key it can decrypt  
+cryptographic information contained in a so-called ticket which enables secure unicast 
+communication.</t>
+
+<t>After the end of the registration process (phase 1), phase 2 begins with the PTP key request 
+of the client (here called requester). Similar to the group-based mode, the requester wanting 
+to start a secured PTP unicast communication with a specific grantor 
+contacts the NTS-KE server sending a PTP Key Request message (see <xref target="key-request"/>) 
+as shown in <xref target="tbl_ptp_key_request"/>, again using the TLS-secured NTS Key Establishment 
+protocol. The NTS-KE server performs the authentication check of the client and then answers 
+with a PTP Key Response message (see <xref target="key-response"/>) with all the necessary 
+data to begin the unicast communication with the desired partner or with a respective error 
+code if unicast communication with that instance is unavailable. Though the message types 
+are the same as in GrM the content differs.</t>
+
+<t>In TiM the PTP Key Response message includes the TiM-SA with a unicast key to secure the PTP message exchange with 
+the desired grantor. In addition, it contains the above mentioned (partially) encrypted ticket which the 
+requester later (phase 3) transmits in the AUTHENTICATION TLV (see <xref target="nts4ptp_res_field"/>) 
+with the secured PTP message to the grantor.</t>
+
+<t>After the NTS Key Establishment messages for the PTP unicast mode have been exchanged, finally, 
+the secured PTP communication (phase 3) can take place using the security association(s) 
+communicated. A requester may send a (unicast key-) secured PTP signaling message containing 
+the received encrypted ticket, asking for a grant of a so-called unicast contract which contains 
+a request for a specific PTP message type, as well as the desired frame rate.</t>
+
+<t>The grantor receiving the PTP message decrypts the received ticket with its 
+ticket key and extracts the containing security parameters, for example the unicast key used 
+by the requester to secure the PTP message and the requester’s identity. In that way the 
+grantor can check the received message, identify the requester and can use the unicast key 
+for further secure PTP communication with the requester until the unicast key expires.</t>
+
+<t>A grantor that supports unicast and provides sufficient capacity will acknowledge the request 
+for a unicast contract with a PTP unicast grant.</t>
+
+<t>If a grantor is no longer at disposal for unicast mode during the lifetime of registration 
+and ticket key, it sends a TLS-secured PTP Registration Revoke message (see <xref target="registration-revoke"/>, 
+not shown in <xref target="fig-ticket-based"/>) to the NTS-KE server, so requesters no longer 
+receive security associations (key etc.) in PTP Key Response messages for this grantor. Instead, the NTS-KE 
+server sends response messages with respective error codes. </t>
+
+
+<t>For addressing a grantor, the requesting instance simply may use the grantor's IP, MAC address 
+or PortIdentity attribute.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section anchor="general-topics" title="General Topics">  <!-- 2. oberste Ebene -->
+
+<t>This section describes more general topics like key update and key generation as well as discussion 
+of the time information on the NTS-KE server, the use of certificates and topics concerning upfront 
+configuration.</t>
+
+
+<section anchor="key-update"  title="Key Update Process">  <!-- 3. oberste Ebene -->
+
+<t>The security parameters update process is an important part of NTS4PTP. It keeps the keys up to date, 
+allows for both, runtime security policy changes and easy group control. The rotation operation allows 
+uninterrupted PTP operation in GrM as well as in TiM.</t>
+
+<t>The update mechanism is based on the Validity Period record in the NTS response messages, which 
+includes the three values lifetime, update period and grace period, see 
+<xref target="fig-update-group-based"/>. The lifetime 
+parameter specifies the validity period of the security parameters (e.g., security association (SA) and 
+ticket) in seconds, which is counted down. This value can range from a few minutes to a few days. 
+(Due to the design of the replay protection, a maximum lifetime of many days is possible, but 
+should not exceed 24h, see <xref target="replay"/>). 
+After the validity period has expired, the security parameters may no longer 
+be used to secure PTP messages and must be deleted soon after.</t>
+
+<t>New security parameters are available on the NTS-KE server during the update period, a time span 
+before the expiry of the lifetime. The length of the update period is therefore always shorter 
+than the full lifetime and is typically in the range of a few minutes.</t>
+
+<t>The grace period also helps to ensure uninterrupted key rotation. This value defines a period 
+of time after the lifetime expiry during which the expired security parameters continue to be 
+accepted. The grace period covers a few seconds at most and is only intended to compensate for 
+runtime delays in the network during the update process. A maximum grace period of 5 seconds is recommended.
+The respective values of the three parameters are defined by the administrator and can also be 
+specified by a corresponding PTP profile.</t>
+
+
+      <figure anchor="fig-update-group-based" title="Example of the parameter rotation using lifetime, update period and
+                                                      grace period in group-based mode">
+        <artwork><![CDATA[
+|12,389s (@time of key request)  0s|14,400s                   0s|
++----------------------------------+------------------...-------+
+| Lifetime (current parameters)    |  Lifetime (next parameters)|
++-------------------------+--------+------------------...-------+
+                          |  300s  |  3s  |
+                          |<------>|<---->|
+                          | update |grace |
+                          | period |period| 
+                          |________|______|
+                               |       |
+                               V       V
+ Request and receive new parameters   Still accepting
+          at a random point in time   old parameters
+
+Example:
+--------
+lifetime (full): 14,400s = 4h
+update period:      300s = 5min
+grace period:         3s
+ ]]>
+        </artwork>
+      </figure>
+
+
+<t>As the value for lifetime is specified in seconds which denote the remaining time and is decremented down 
+to zero, hard adjustments of the clock used have to be avoided. Therefore, the use of a monotonic 
+clock is recommended. Requests during the currently running validity period will receive respectively 
+adapted count values.</t> 
+
+<t>The Validity Period record (see <xref target="validity-period"/>) with its parameters lifetime, update 
+period and grace period is contained in a so-called Current Parameters container record. Together 
+with other security parameters this container record is always present in a PTP Key respectively Registration 
+Response message. During the update period the response message additionally comprises the Next Parameters 
+container record, which holds the new lifetime etc. starting at the end of the current lifetime as well 
+as the other security parameters of the upcoming lifetime cycle.</t> 
+
+<t>Any PTP client sending a PTP Key Request to the NTS-KE server, be it in GrM to receive the group 
+SA or be it in TiM asking for TiM-SA (unicast key etc. and encrypted ticket), will receive 
+the Current Parameters container record where lifetime includes the remaining time to run rather 
+than the full. Requesting during the update period the response includes also the new lifetime value etc.
+in the Next Parameters container record. The new lifetime is the full value of the validity starting 
+at the end of the current lifetime and update period. After the old lifetime has expired, only the 
+new parameters (including lifetime, update period and grace period) have to be used. Merely during the 
+grace period, the old SA will be accepted to cope with smaller delays in the PTP communication.</t> 
+
+<t>All PTP clients are obliged to connect to the NTS-KE server during the update period to allow for 
+uninterrupted secured PTP operation. To avoid peak load on the NTS-KE server all clients SHOULD choose 
+a random starting time during the update period.</t> 
+
+<t>In TiM the unicast grantors execute the NTS-TSR protocol to register with the NTS-KE server. The 
+rotation sequence (see <xref target="fig-update-ticket-based"/>) and the behavior of the PTP 
+Registration Response message is almost identical to the NTS-KE protocol. The main difference here 
+is that the update period has to start earlier so that a grantor has re-registered before requesters 
+ask for new security parameters at the NTS-KE server.</t> 
+
+<t>As the difference between the start of the requester’s update period and the beginning of the 
+update period of the grantor is not communicated, the grantor should contact the NTS-KE server directly 
+after the start of its update period. However, since the rotation periods occur at different times 
+for multiple grantors, no load peaks occur here either.</t> 
+
+<t>If a grantor does not re-register in time, requesters asking for a key etc. may not receive a 
+Next Parameters container record, as no new SA is available at that point. So, requesters need to 
+try again later.</t> 
+
+<t>As PTP unicast contracts in TiM run independently of the update cycle, a special situation may occur. 
+If the remaining lifetime is short, the grantor decides whether it grants any contract longer than 
+the remaining lifetime or not. If a unicast contract is to be extended within the update period 
+and the requester already owns the new TiM-SA with the ticket, it MAY already apply the upcoming 
+security parameters here. This allows the requester to negotiate the full time for the unicast contract 
+with the grantor.</t> 
+
+<t>If a grantor has revoked his registration with a PTP Registration Revoke message, requesters 
+will receive a PTP Key Response message with an error code when trying to update for a new TiM-SA. 
+No immediate key revoke mechanism exists. The grantor SHOULD NOT grant respective unicast 
+requests during the remaining lifetime of the revoked key.</t> 
+
+
+      <figure anchor="fig-update-ticket-based" title="Example of the parameter rotation using lifetime and
+                                                      update period in ticket-based mode">
+
+        <artwork><![CDATA[
+Update process grantor:
+-----------------------
+
+(@time of registration response)
+  |   
+|14,400s                          0s |14,400s                 0s|
++---------------------------------------------------...---------+
+|Lifetime (current ticket key)       |Lifetime (next ticket key)|
++----------------------+------+------+--------------...---------+
+                       |     480s    |      
+                       |<----------->|      
+                       |   update    |      
+                       |   period    |      
+                       |_____________|      
+                       |      :      :
+                       V      :      :
+              Re-registration :      :
+                              :      :
+                              :      : 
+Update process requester:     :      :
+-------------------------     :      :
+                              :      :
+    |12,389s (@time of key request)0s|14,400s                 0s|
+    +--------------------------------+----------------...-------+
+    | Lifetime (current parameters)  |Lifetime (next parameters)|
+    +-------------------------+------+------+---------...-------+
+                              | 300s |   3s |
+                              |<---->|<---->|
+                              |update|grace |
+                              |period|period| 
+                              |______|______|
+                                 |       |
+                                 V       V
+ Request and receive new parameters    Still accepting
+          at a random point in time    old parameters
+
+Example:
+--------
+lifetime (full):        14,400s = 4h
+update period grantor:     480s = 8min
+update period requester:   300s = 5min
+grace period:                3s
+ ]]>
+        </artwork>
+      </figure>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="key-generation" title="Key Generation">  <!-- 3. oberste Ebene -->
+
+<t>In all cases keys obtained by a secure random number generator SHALL be used. The length of 
+the keys depends on the cryptographic algorithm used (see also last subsection in 
+<xref target="sa-spp-management"/>).</t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="time-ke-server" title="Time Information of the NTS-KE server">  <!-- 3. oberste Ebene -->
+
+<t>As the NTS-KE server embeds time duration information in the respective messages, its local time 
+should be accurate to within a few seconds compared to the controlled PTP network(s). To 
+avoid any dependencies, it should synchronize to a secure external time source, for example an 
+NTS-secured NTP server. The time information is also necessary to check the lifetime of certificates used.</t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="certificates" title="Certificates">  <!-- 3. oberste Ebene -->
+
+<t>The authentication of the TLS communication parties is based on certificates issued by a trusted 
+Certificate Authority (CA) that are utilized during the TLS handshake. In classical TLS applications 
+only servers are required to have them. For the key management system described here,  the PTP nodes 
+also need certificates to allow only authorized and trusted devices to get the group key and join 
+a secure PTP network. (As TLS only authenticates the communication partners, authorization has to 
+be managed by external means, see the topic "Authorization" in <xref target="upfront-authorization"/>.) 
+The verification of a certificate always requires a loose time synchronicity, 
+because they have a validity period. This, however, reveals the well-known start-up problem, since 
+secure time transfer itself requires valid certificates. (See the discussion and proposals on this 
+topic in IETF RFC 8915 <xref target="RFC8915"/>, Section 8.5 "Initial Verification of Server certificates" 
+which applies to client and server certificates in the PTP key management system, too.) </t>
+
+<t>Furthermore, some kind of Public Key Infrastructure (PKI) is necessary, which may be conceivable via 
+the Online Certificate Status Protocol (OCSP, IETF RFC 6960) <xref target="RFC6960"/> 
+or other means as well as offline via root CA certificates.</t>
+
+<t>The TLS communication parties must be equipped with a private key and a certificate in advance. The 
+certificate contains a digital signature of the CA as well as the public key of the sender. The key 
+pair is required to establish an authenticated and encrypted channel for the initial TLS phase. 
+Distribution and update of the certificates can be done manually or automatically. However, it is 
+important that they are issued by a trusted CA instance, which can be either local (private CA) or 
+external (public CA).</t>
+
+<t>For the certificates the standard for X.509 <xref target="ITU-T_X.509"/> certificates are to be used. 
+Additional data in the certificates like domain, sdoId and/or GrM group attributes may help in authorizing. 
+In that case it should be noted that using the PTP device in another network then implies to have a new 
+certificate, too. Working with certificates without authorization information would not have that 
+disadvantage, but more configuring at the NTS-KE server would be necessary: which domain, sdoId and/or 
+GrM group attributes belong to which certificate.</t>
+
+<t>As TLS is used to secure both sub-protocols, the NTS-KE and the NTS-TSR protocol, a comment on 
+the security of TLS 
+seems reasonable. A TLS 1.3 connection is considered secure today. However, note that a DoS (Denial 
+of Service) attack on the key server can prevent new connections or parameter updates for secure 
+PTP communication. A hijacked key management system is also critical, because it can completely 
+disable the protection mechanism. A redundant implementation of the key server is therefore essential 
+for a robust system. A further mitigation can be the limitation of the number of TLS requests of 
+single PTP nodes to prevent flooding. But such measures are out of the scope of this document.</t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+
+<section anchor="upfront-configuration" title="Upfront Configuration">  <!-- 3. oberste Ebene -->
+
+<t>All PTP instances as well as the NTS-KE server need to be configured by the network administrator. 
+This applies to several fields of parameters.</t>
+
+
+<section anchor="upfront-security-parameters" title="Security Parameters">  <!-- 4. oberste Ebene -->
+<t>The cryptographic algorithm and associated parameters (the so-called security association(s) – SA) 
+used for PTP keys are configured by network operators at the NTS-KE server. PTP instances that do not support the configured 
+algorithms cannot operate with the security. Since most PTP networks are managed by a single organization, 
+configuring the cryptographic algorithm (MAC) for ICV calculation is practical. This prevents the 
+need for the NTS-KE server and PTP instances to implement an NTS algorithm negotiation protocol. </t>
+
+<t>For the ticket-based mode the AEAD algorithms need to be specified which the PTP grantors and 
+the NTS-KE server support and negotiate during the registration process. Optionally, the MAC algorithm may 
+be negotiated during a unicast PTP Key Request to allow faster or stronger algorithms, but a standard 
+algorithm supported by every instance should be defined. Eventually, suitable algorithms may be defined 
+in a respective PTP profile. </t>
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+<section anchor="upfront-key-lifetimes" title="Key Lifetimes">  <!-- 4. oberste Ebene -->
+
+<t>Supplementary to the above mentioned SAs the desired key rotation periods, i.e., the lifetimes of 
+keys respectively all security parameters need to be configured at the NTS-KE server. This applies to the 
+lifetime of a group key in the group-based mode as well as the lifetime of ticket key and unicast 
+key in the ticket-based mode (typically for every unicast pair in general). 
+In addition, the corresponding update periods and grace 
+periods need to be defined. Any particular lifetime, update period and grace period is configured as 
+time spans specified in seconds.</t>
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+
+<section anchor="upfront-certificates" title="Certificates">  <!-- 4. oberste Ebene -->
+
+<t>The network administrator has to supply each PTP instance and the NTS-KE server with their X.509 
+certificates. The TLS communication parties must be pre-equipped with a private key and a 
+certificate containing the public key  (see <xref target="certificates"/>). </t>
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+
+<section anchor="upfront-authorization" title="Authorization">  <!-- 4. oberste Ebene -->
+
+<t>The certificates provide authentication of the communication partners. Normally, they do not 
+contain authorization information. Authorization decides, which PTP instances are allowed to join 
+a group (in any of the group-based modes) or may enter a unicast communication in the ticket-based 
+mode and request the respective SA(s) and key. </t> 
+
+<t>As mentioned, members of a group (multicast communication model, mixed multicast/unicast 
+communication model) may be identified by their domain and their sdoId or a self-defined scheme. 
+So, PTP domain and sdoId may be attributes in the certificates of 
+the potential group members supplying additional authorization. If not contained in the 
+certificates extra authorization means are necessary. (See also the discussion on advantages 
+and disadvantages on certificates containing additional authorization data in <xref target="certificates"/>.)</t>
+
+
+<t>In TiM, any authenticated grantor that is an authorized GrM group member may request a 
+registration for unicast communication at the NTS-KE server (implicit authorization).
+If no group authorization is available (e.g., unicast only operation) another authentication 
+scheme is necessary. </t>
+
+<t>In the same way, any requester may request security parameters for a unicast connection with a 
+specific grantor. Only authentication at the NTS-KE server using its certificate and membership 
+in the GrM group is needed (implicit authorization). If a unicast communication 
+is not desired by the grantor, it should not grant a specific PTP unicast request. Again, if no 
+group authorization is available (e.g., unicast only operation) another authentication scheme 
+is necessary.</t>
+
+<t>Authorization can be executed at least in some manual configuration. Probably the application 
+of a standard access control system like Diameter, RADIUS or similar would be more appropriate. 
+Also role-based access control (RBAC), attribute-based access control (ABAC) or more flexible 
+tools like Open Policy Agent (OPA) could help administering larger systems. But details of the 
+authorization of PTP instances lie out of scope of this document.</t>
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+
+<section anchor="upfront-tcs" title="Transparent Clocks">  <!-- 4. oberste Ebene -->
+
+<t>In GrM, Transparent Clocks (TC) need to be supplied with respective certificates for 
+authentication, too. They need to request for the relevant GrM-SA(s) at the NTS-KE server 
+to allow secure use of the correction field in a PTP message and generation of a corrected ICV. 
+ </t>
+
+<t>In addition, authorization of TCs for the respective GrM groups is paramount. 
+Otherwise the security can easily be broken with attackers pretending to be TCs in the path. 
+</t>
+
+<t>Transparent clocks may notice that the communication runs secured. In GrM they request 
+a group key from the NTS-KE server. Afterwards they can check the ICV of incoming messages, fill 
+in the correction field and generate a new ICV for outgoing messages. 
+</t>
+
+<!--
+If TCs are used in ticket-based mode (TiM), they MUST not update the ICV. As they 
+
+need to be authorized for 
+the particular unicast path.
+Authorization of TCs is necessary too in unicast communication, even if the normal unicast 
+partners need not be especially authorized.
+In ticket-based unicast mode a TC may notice a secured unicast request from a requester to the 
+grantor and can request the unicast key from the NTS-KE server to make use of the correction field 
+afterwards. As mentioned above upfront authentication and authorization of the particular TCs 
+is paramount not to open the secured communication to attackers.
+
+-->
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+
+<section anchor="upfront-start-up" title="Start-up considerations">  <!-- 4. oberste Ebene -->
+
+<t>At start-up of a single PTP instance or the complete PTP network, some issues have to be considered.</t>
+ 
+<t>At least loose time synchronization is necessary to allow for authentication using the certificates. 
+See the discussion and proposals on this topic in IETF RFC 8915 <xref target="RFC8915"/>, Section 8.5 "Initial Verification 
+of Server certificates" which applies to client and server certificates in the PTP key management system, too.</t>
+
+<t>To avoid peak loads on the NTS-KE server, PTP instances SHALL contact the NTS-KE server at a 
+random time after start-up, similar to a PTP key re-request during an update period.
+
+Every grantor must register with the NTS-KE server before requesters can request a TiM-SA.</t>
+
+<t>To avoid start-up replay attacks starting PTP instances should follow the procedure described in <xref target="replay"/>.</t> 
+
+</section>  <!-- 4. oberste Ebene schließen -->
+
+</section>  <!-- 3. oberste Ebene schließen -->
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+
+<section anchor="nts-messages-4-ptp" title="NTS Messages for PTP">  <!-- oberste Ebene -->
+
+<t>This section describes the structure of the specific NTS messages for the PTP key 
+management. <xref target="tbl_ptp_key_request"/> to <xref target="tbl_ptp_registration_revoke"/> specify
+which records the messages are composed of.
+
+The Mode column indicates the intended use of the particular record for the respective 
+PTP communication mode. The next column informs whether the respective record is mandatory
+or optional. The reference column in the tables refer to the specific subsections of the 
+record specification. The right column shows typical values as an example.</t>
+
+<t>More details especially on the records the messages are built of and their types, sizes, 
+requirements and restrictions are given in <xref target="nts-records"/>.</t>
+
+<t>The NTS messages MUST contain the records given for the particular message, though not 
+necessarily in the same sequence indicated. Only the End of Message record MUST be 
+the final record.</t>
+
+
+<section anchor="key-request" title="PTP Key Request Message">  <!-- 2. oberste Ebene -->
+
+
+
+<t><xref target="tbl_ptp_key_request"/> shows the record structure of a PTP Key Request message. 
+
+The message starts with the NTS Next Protocol Negotiation record, which in this application 
+always holds PTPv2.1. The following Association Mode record describes the mode how the PTP 
+instance wants to communicate: In GrM the desired group number is given. In TiM the Association Mode 
+contains the identification of the desired grantor, for example IPv4 and its IP address.</t>
+
+
+	<texttable align="left" anchor="tbl_ptp_key_request" title="Record structure of the PTP Key Request message">
+        <preamble><spanx style="strong">PTP Key Request  (NTS-KE protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+		
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>NTS Next Protocol Negotiation</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-next-protocol-nego"/> </c>
+          <c>PTPv2.1</c>
+		<!-- 2nd row:  -->
+          <c>Association Mode</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="association-mode"/> </c>
+          <c>(Association Type || Association Value)</c>
+		  <!-- 3rd row:  -->
+          <c>Supported MAC Algorithms</c>
+          <c>TiM</c>
+          <c>optional</c>
+		  <c> <xref target="supported-mac-algos"/> </c>
+          <c>CMAC || HMAC</c>
+		<!-- 4th row:  -->
+          <c>Source PortIdentity</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="source-portidentity"/> </c>
+          <c>{binary data}</c>
+		<!-- 5th row:  -->
+          <c>End of Message</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+		
+
+        <postamble></postamble>   
+    </texttable>
+
+<t>Only in TiM, an optional record may follow. It offers the possibility to choose from 
+additional MAC algorithms and presents the supported algorithms from which the NTS-KE server 
+may choose. Again, only in ticket-based mode, the Source PortIdentity record gives 
+the data of the identification of the applying requester, for example IPv4 and its IP address. 
+The messages always end with an End of Message record.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+<section anchor="key-response" title="PTP Key Response Message">  <!-- 2. oberste Ebene -->
+
+<t><xref target="tbl_ptp_key_response"/> shows the record structure of a PTP Key Response message 
+from the NTS-KE server (NTS-KE protocol). 
+The message starts with the NTS Next Protocol Negotiation record which in this application always 
+holds PTPv2.1.</t>
+
+	<texttable align="left" anchor="tbl_ptp_key_response" title="Record structure of the PTP Key Response message.">
+        <preamble><spanx style="strong">PTP Key Response (NTS-KE protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>NTS Next Protocol Negotiation</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-next-protocol-nego"/> </c>
+          <c>PTPv2.1</c>
+		<!-- 2nd row:  -->
+          <c>Current Parameters</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="current-parameters-container"/> </c>
+          <c>set of records {...}</c>
+		<!-- 3rd row:  -->
+          <c>Next Parameters</c>
+          <c>GrM / TiM</c>
+          <c>mandatory (only during update period)</c>
+		  <c> <xref target="next-parameters-container"/> </c>
+          <c>set of records {...}</c>
+		<!-- 4th row:  -->
+          <c>End of Message</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+<t>The following Current Parameters record is a container record holding, in separate records, 
+all the security data required to join and communicate in the secured PTP communication during 
+the current validity period. <xref target="tbl_container"/> shows the records incorporated in 
+this container record, again with example contents in the right-hand column.
+For more details on the records included in the Current Parameters 
+container record see <xref target="current-parameters-container"/>.</t>
+
+<t>If the request lies inside the update period, a Next Parameters container record is additionally
+appended in the PTP Key Response message giving all the security data needed for the upcoming 
+validity period. Its structure follows the same composition as the Current Parameters container
+record. If that specific client is to be excluded from the group in the upcoming SA period 
+no Next Parameters container SHALL be sent. 
+In the event of an error, e.g., the requested grantor is not available, both parameters container 
+records are removed and a single error record is inserted (see <xref target="tbl_ptp_key_response_error"/>). 
+The messages always end with an End of Message record.</t>
+
+
+	<texttable align="left" anchor="tbl_ptp_key_response_error" title="Record structure of the PTP Key Response message in case of an error.">
+        <preamble><spanx style="strong">PTP Key Response with Error (NTS-KE protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>NTS Next Protocol Negotiation</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-next-protocol-nego"/> </c>
+          <c>PTPv2.1</c>
+		<!-- 2nd row:  -->
+          <c>Error</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="error"/> </c>
+          <c>Not authorized</c>
+		<!-- 3rd row:  -->
+          <c>End of Message</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+
+<t>The structure of the respective container records (Current Parameters and Next 
+   Parameters) used in the PTP Key Response message is given below:</t>
+
+
+	<texttable align="left" anchor="tbl_container" title="Record structure of the container records">
+        <preamble><spanx style="strong">Current/Next Parameters container - PTP Key Response (NTS-KE protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Security Association</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="security-association"/> </c>
+          <c>data set {...}</c>
+
+		<!-- 2nd row:  -->
+          <c>Validity Period</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="validity-period"/> </c>
+          <c>{1560s||300s||3s}</c>
+
+		<!-- 3th row:  -->
+          <c>PTP Time Server</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="ptp-time-server"/> </c>
+          <c>data set {...}</c>
+		<!-- 4th row:  -->
+          <c>Ticket</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="ticket"/> </c>
+          <c>data set {...}</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+ 
+<section anchor="registration-request" title="PTP Registration Request Message">  <!-- 2. oberste Ebene -->
+
+<t>The PTP Registration Request message (NTS-TSR protocol) starts with the NTS Message Type record 
+containing the message type as well as the message version number, here always 1.0, see 
+<xref target="tbl_ptp_registration_request"/>. (As the message belongs to the NTS-TSR protocol, no 
+NTS Next Protocol Negotiation record is necessary.)</t>
+
+
+	<texttable align="left" anchor="tbl_ptp_registration_request" title="Record structure of the PTP Registration Request message">
+        <preamble><spanx style="strong">PTP Registration Request (NTS-TSR protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>NTS Message Type</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-message-type"/> </c>
+          <c>PTP Registration Request||v1.0</c>
+		<!-- 2nd row:  -->
+          <c>PTP Time Server</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="ptp-time-server"/> </c>
+          <c>data set {...}</c>
+		<!-- 3rd row:  -->
+          <c>AEAD Algorithm Negotiation</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="aead-negotiation"/> </c>
+          <c>{AEAD_512||AEAD_256}</c>
+		<!-- 4th row:  -->
+          <c>Supported MAC Algorithms</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="supported-mac-algos"/> </c>
+          <c>{CMAC||HMAC}</c>
+		<!-- 5th row:  -->
+          <c>End of Message</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+<t>The PTP Time Server record presents all known network addresses of this grantor that are 
+supported for a unicast connection. The following AEAD Algorithm Negotiation record indicates 
+which algorithms for encryption of the ticket the grantor supports.</t>
+
+<t>Then the next record (not optional as in PTP Key Request) follows, presenting all the grantor's 
+supported MAC algorithms. The Supported MAC Algorithms record contains a list of supported MAC 
+algorithms by the grantor that are feasible for calculating the ICV when securing the 
+PTP messages in TiM. The message always ends with an End of Message record.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section anchor="registration-response" title="PTP Registration Response Message">  <!-- 2. oberste Ebene -->
+
+<t>The PTP Registration Response message (NTS-TSR protocol) from the NTS-KE server starts 
+with the NTS Message Type record containing the message type as well as the message version 
+number, here always 1.0, see <xref target="tbl_ptp_registration_response"/>. (As the message 
+belongs to the NTS-TSR protocol, no NTS Next Protocol Negotiation record is necessary.)</t>
+
+
+	<texttable align="left" anchor="tbl_ptp_registration_response" title="Record structure of the PTP Registration Response message.">
+	
+        <preamble><spanx style="strong">PTP Registration Response (NTS-TSR protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+       <c>NTS Message Type</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-message-type"/> </c>
+          <c>PTP Registration Response||v1.0</c>
+		<!-- 2nd row:  -->
+          <c>Current Parameters</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="current-parameters-container"/> </c>
+          <c>set of records {...}</c>
+		<!-- 3rd row:  -->
+          <c>Next Parameters</c>
+          <c>TiM</c>
+          <c>mandatory (only during update period)</c>
+		  <c> <xref target="next-parameters-container"/> </c>
+          <c>set of records {...}</c>
+		<!-- 4th row:  -->
+          <c>End of Message</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+
+<t>As in the NTS-KE protocol, the following Current Parameters record is a container record 
+containing in separate records all the necessary parameters for the current validity period. 
+<xref target="tbl_container_in_response"/> shows the records contained in that container 
+record, again with exemplary contents in the right column. 
+
+For more details on the records contained in the Current Parameters container  
+record see <xref target="current-parameters-container"/>.</t>
+
+	<texttable align="left" anchor="tbl_ptp_registration_response_error" title="Record structure of the PTP Registration Response message in case of an error.">
+	
+        <preamble><spanx style="strong">PTP Registration Response with error (NTS-TSR protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+       <c>NTS Message Type</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-message-type"/> </c>
+          <c>PTP Registration Response||v1.0</c>
+		<!-- 2nd row:  -->
+          <c>Error</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="error"/> </c>
+          <c>Not authorized</c>
+		<!-- 3rd row:  -->
+          <c>End of Message</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+
+<t>The structure of the respective container records (Current Parameters and Next Parameters) used in the PTP Registration Response message is given below:</t>
+
+	<texttable align="left" anchor="tbl_container_in_response" title="Record structure of the container records in the PTP Registration Response message">
+        <preamble><spanx style="strong">Current/Next Parameters container - PTP Registration Response (NTS-TSR protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>AEAD Algorithm Negotiation</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="aead-negotiation"/> </c>
+          <c>AEAD_AES_SIV_CMAC_512</c>
+		<!-- 2nd row:  -->
+          <c>Validity Period</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="validity-period"/> </c>
+          <c>{2460s||400s||3s}</c>
+		<!-- 3rd row:  -->
+          <c>Ticket Key ID</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="ticket-key-id"/> </c>
+          <c>278</c>
+		<!-- 6th row:  -->
+          <c>Ticket Key</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="ticket-key"/> </c>
+          <c>{binary data}</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+<t>If the registration request lies inside the update period a Next Parameters container 
+record is additionally appended giving all the security data needed in the upcoming validity period. Its 
+structure follows the same composition as the Current Parameters container record.
+(If the respective grantor has not registered yet for the upcoming SA period or has revoked its 
+service, no Next Parameters container will be sent.) 
+
+In case of an error, both parameters container records are removed and a single error record is inserted 
+(see <xref target="tbl_ptp_registration_response_error"/>). The messages always end with an End of Message record.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section anchor="registration-revoke" title="PTP Registration Revoke Message">  <!-- 2. oberste Ebene -->
+
+<t>The PTP Registration Revoke message (NTS-TSR protocol) from the grantor starts with 
+the NTS Message Type record containing the message type as well as the message version 
+number, here always 1.0, see <xref target="tbl_ptp_registration_revoke"/>. (As the message 
+belongs to the NTS-TSR protocol, no NTS Next Protocol Negotiation record is necessary.)</t>
+
+
+	<texttable align="left" anchor="tbl_ptp_registration_revoke" title="Record structure of the PTP Registration Revoke message">
+        <preamble><spanx style="strong">PTP Registration Revoke (NTS-TSR protocol)</spanx></preamble>
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Mode</ttcol>
+        <ttcol align="center">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+        <ttcol align="left">Exemplary body contents</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>NTS Message Type</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="nts-message-type"/> </c>
+          <c>PTP Registration Revoke||v1.0</c>
+		<!-- 2nd row:  -->
+          <c>Source PortIdentity</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="source-portidentity"/> </c>
+          <c>{binary data}</c>
+		<!-- 3rd row:  -->
+          <c>End of Message</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+		  <c> <xref target="end-of-message"/> </c>
+          <c>(no record body)</c>
+
+<!--        <postamble></postamble>   -->
+    </texttable>
+
+<t>The second record contains the Source PortIdentity which identifies the grantor wishing to 
+   discontinue its unicast support. Together with the Subject Key Identifier (SKI) of the client 
+   certificate (verified during the TLS connection establishment) and the source PortIdentity 
+   given in the NTS message, the NTS-KE server can uniquely identify the grantor if the PTP 
+   device communicates with the NTS-KE server via a management port running multiple grantors. 
+   The message always ends with an End of Message record. </t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+
+<section anchor="nts-records" title="NTS Records for PTP">  <!-- oberste Ebene -->
+
+
+<t>The above sections have described the principle communication sequences and structure for the new NTS messages. 
+   All messages follow the "NTS Key Establishment Process" stated in the first part (up to the description of 
+   Figure 3) of Section 4 of IETF RFC 8915 <xref target="RFC8915"/> with the exception that registration 
+   requests use the ALPN "ntstsr/1" instead of the ALPN "ntske/1/1" and do not include a Next Protocol Negotiation 
+   record:</t>
+
+<!--
+<t><list>
+
+      <t>
+        <spanx style="emph">&quot;The NTS key establishment protocol is conducted via TCP port 4460.
+        The two endpoints carry out a TLS handshake in conformance with
+        Section 3, with the client offering (via an ALPN extension </spanx><xref target="RFC7301"/>)<spanx style="emph">, 
+		and the server accepting,
+        an application-layer protocol of &quot;ntske/1&quot;. Immediately
+        following a successful handshake, the client SHALL send a single request
+        as Application Data encapsulated in the TLS-protected channel. Then, the
+        server SHALL send a single response. After sending their respective
+        request and response, the client and server SHALL send TLS
+        &quot;close_notify&quot; alerts in accordance with Section 6.1 of RFC 8446 </spanx><xref target="RFC8446"/>.
+        <vspace blankLines="1" /></t>
+
+      <t>
+        <spanx style="emph">The client's request and the server's response each SHALL consist of a
+        sequence of records formatted according to</spanx>
+        <xref target="fig-ntske-record"/><spanx style="emph">. The request and a non-error response each
+        SHALL include exactly one NTS Next Protocol Negotiation record. The
+        sequence SHALL be terminated by a &quot;End of Message&quot; record. The
+        requirement that all NTS-KE messages be terminated by an End of Message
+        record makes them self-delimiting.</spanx>
+        <vspace blankLines="1" /></t>
+      <t>
+        <spanx style="emph">Clients and servers MAY enforce length limits on requests and responses,
+        however, servers MUST accept requests of at least 1024 octets and
+        clients SHOULD accept responses of at least 65536 octets.</spanx>
+        <vspace blankLines="1" /></t>
+
+      <t>
+        <spanx style="emph">The fields of an NTS-KE record are defined as follows:</spanx>
+        <list>
+          <t>
+            <spanx style="emph">C (Critical Bit): Determines the disposition of unrecognized Record
+            Types. Implementations which receive a record with an unrecognized
+            Record Type MUST ignore the record if the Critical Bit is 0 and MUST
+            treat it as an error if the Critical Bit is 1 (see Section 4.1.3).</spanx>
+          <vspace blankLines="1" /></t>
+          <t>
+            <spanx style="emph">Record Type Number: A 15-bit integer in network byte order. The
+            semantics of record types 0&ndash;7 are specified in this memo.
+            Additional type numbers SHALL be tracked through the IANA Network
+            Time Security Key Establishment Record Types registry.</spanx>
+          <vspace blankLines="1" /></t>
+          <t>
+            <spanx style="emph">Body Length: The length of the Record Body field, in octets, as a
+            16-bit integer in network byte order. Record bodies MAY have any
+            representable length and need not be aligned to a word boundary.</spanx>
+          <vspace blankLines="1" /></t>
+          <t>
+            <spanx style="emph">Record Body: The syntax and semantics of this field SHALL be
+            determined by the Record Type.</spanx>
+          <vspace blankLines="1" /></t>
+        </list>
+      </t>
+      <t>
+        <spanx style="emph">For clarity regarding bit-endianness: the Critical Bit is the
+        most-significant bit of the first octet. In the C programming language,
+        given a network buffer
+        `unsigned char b[]` containing an NTS-KE record, the critical bit is
+        `b[0] &gt;&gt; 7` while the record type is
+        `((b[0] &amp; 0x7f) &lt;&lt; 8) + b[1]`.&quot;</spanx>
+      </t>
+</list></t>
+-->
+
+      <figure anchor="fig-ntske-record" title="NTS-KE record format">
+        <artwork><![CDATA[
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|C|         Record Type         |          Body Length          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
+:                                                               :
+:                           Record Body                         :
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+]]>
+        </artwork>
+      </figure>
+	
+
+<t>All NTS messages consist of a sequence of records, each containing a Critical Bit C, 
+   the Record Type, the Body Length and the Record Body, see <xref target="fig-ntske-record"/>. 
+
+   The Critical Bit determines the disposition of unrecognized Record Types. Implementations 
+   which receive a record with an unrecognized Record Type MUST ignore the record if the 
+   Critical Bit is 0 and MUST treat it as an error if the Critical Bit is 1.
+   
+   The Record Type number is a 15-bit integer. The semantics of record 
+   types 0&ndash;7 are specified in <xref target="RFC8915"/>. Additional type numbers as defined 
+   in this document SHALL be tracked through the IANA Network Time Security Key Establishment Record Types registry.
+   
+   The Body Length specifies the length of the Record Body field, in octets, as a 16-bit integer. 
+   Record bodies MAY have any representable length and need not be aligned to a word boundary.
+   
+   The syntax and semantics of the field Record Body SHALL be determined by the Record Type.
+   
+   All fields of an NTS-KE record are in network byte order.
+   </t>
+   
+
+<t>More details on record structure as well as the specific records used here are given in 
+   this section and respective subsections. Container 
+   records (short: container) themselves comprise a set of records in the record body that 
+   serve a specific purpose, e.g., the Current Parameters container record.</t>
+
+<t>The records contained in a message may follow in arbitrary sequence (though nothing 
+speaks against using the sequence given in the record descriptions), only the End of 
+Message record MUST be the last one in the sequence indicating the end of the current 
+message. Container records do not include an End of Message record.</t>
+
+
+
+<section anchor="nts-records-list" title="Overview of the NTS Records">  <!-- 2. oberste Ebene -->
+
+<t>In <xref target="tbl_nts_ke_record_registry"/> below, this section lists all NTS records 
+   from which the messages are constructed. In addition to the NTS records already defined for NTP in 
+   IETF RFC 8915 (see <xref target="RFC8915"/>, Section 7.6.), additional records are required 
+   and their type numbers have to be defined by the IANA. 
+   The detailed structure and respective content of the records is given in 
+   <xref target="nts-records-details"/>. In addition to the record number the sub-protocol it is 
+   used with, <xref target="tbl_nts_ke_record_registry"/> indicates where it can be found in 
+   <xref target="RFC8915"/> or in this document. </t>
+
+
+
+
+	<texttable anchor="tbl_nts_ke_record_registry" title="NTS Key Establishment and Time Server Registration record types registry">
+        <!--   <preamble><spanx style="strong"></spanx></preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Types</ttcol>
+        <ttcol align="left">Description</ttcol>
+        <ttcol align="left">Record Used in Protocol</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>0</c>
+          <c>End of Message</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.1. This document in <xref target="end-of-message"/> </c>
+		<!-- 2nd row:  -->
+          <c>1</c>
+          <c>NTS Next Protocol Negotiation</c>
+          <c>NTS-KE</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.2. This document in <xref target="nts-next-protocol-nego"/> </c>
+		<!-- 3rd row:  -->
+          <c>2</c>
+          <c>Error</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.3. This document in <xref target="error"/> </c>
+		<!-- 4th row:  -->
+          <c>3</c>
+          <c>Warning</c>
+          <c>NTS-KE</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.4. Not used for PTP</c>
+		<!-- 5th row:  -->
+          <c>4</c>
+          <c>AEAD Algorithm Negotiation</c>
+          <c>NTS-TSR</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.5. This document in <xref target="aead-negotiation"/> </c>
+		<!-- 6th row:  -->
+          <c>5</c>
+          <c>New Cookie for NTPv4</c>
+          <c>NTS-KE</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.6. Not used for PTP</c>
+		<!-- 7th row:  -->
+          <c>6</c>
+          <c>NTPv4 Server Negotiation</c>
+          <c>NTS-KE</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.7. Not used for PTP</c>
+		<!-- 8th row:  -->
+          <c>7</c>
+          <c>NTPv4 Port Negotiation</c>
+          <c>NTS-KE</c>
+		  <c><xref target="RFC8915"/> in Section 4.1.8. Not used for PTP</c>
+		<!-- 9th row:  -->
+          <c>8 - TBD</c>
+          <c>(Reserved for NTP)</c>
+          <c></c>
+		  <c></c>
+		<!-- 10th row:  EMPTY-->
+          <c></c>
+          <c></c>
+          <c></c>
+		  <c></c>
+		<!-- 11th row:  -->
+          <c>TBD01</c>
+          <c>Association Mode</c>
+          <c>NTS-KE</c>
+		  <c> <xref target="association-mode"/> </c>
+		<!-- 12th row:  -->
+          <c>TBD02</c>
+          <c>Current Parameters</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="current-parameters-container"/> </c>
+		<!-- 13th row:  XXXXXX-->
+          <c>TBD03</c>
+          <c>Next Parameters</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="next-parameters-container"/> </c>
+		<!-- 14th row:  -->
+          <c>TBD04</c>
+          <c>NTS Message Type</c>
+          <c>NTS-TSR</c>
+		  <c> <xref target="nts-message-type"/> </c>
+		<!-- 15th row:  -->
+          <c>TBD05</c>
+          <c>PTP Time Server</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="ptp-time-server"/> </c>
+		<!-- 16th row:  -->
+          <c>TBD06</c>
+          <c>Security Association</c>
+          <c>NTS-KE</c>
+		  <c> <xref target="security-association"/> </c>
+		<!-- 17th row:  -->
+          <c>TBD07</c>
+          <c>Source PortIdentity</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="source-portidentity"/>   </c>
+		<!-- 18th row:  -->
+          <c>TBD08</c>
+          <c>Supported MAC Algorithms</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="supported-mac-algos"/> </c>
+		<!-- 19th row:  -->
+          <c>TBD09</c>
+          <c>Ticket</c>
+          <c>NTS-TSR</c>
+		  <c> <xref target="ticket"/> </c>
+		<!-- 20th row:  -->
+          <c>TBD10</c>
+          <c>Ticket Key</c>
+          <c>NTS-TSR</c>
+		  <c> <xref target="ticket-key"/> </c>
+		<!-- 21st row:  -->
+          <c>TBD11</c>
+          <c>Ticket Key ID</c>
+          <c>NTS-TSR</c>
+		  <c> <xref target="ticket-key-id"/> </c>
+		<!-- 22nd row:  -->
+          <c>TBD12</c>
+          <c>Validity Period</c>
+          <c>NTS-KE / NTS-TSR</c>
+		  <c> <xref target="validity-period"/> </c>
+		<!-- 23rd row:  -->
+          <c>TBD13 - 16383</c>
+          <c>Unassigned</c>
+		  <c></c>
+		  <c></c>
+		<!-- 24th row:  EMPTY  -->
+          <c></c>
+          <c></c>
+		  <c></c>
+		  <c></c>
+		<!-- 25th row:  -->
+          <c>16384 - 32767</c>
+          <c>Reserved for Private or Experimental Use</c>
+		  <c></c>
+		  <c><xref target="RFC8915"/> </c>
+
+        <!-- <postamble></postamble>   -->
+    </texttable>
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+<section anchor="nts-records-details" title="Detailed Description of the NTS Records">  <!-- 2. oberste Ebene -->
+
+
+<t>The following subsections describe the specific NTS records used to construct the NTS 
+messages for the PTP key management system in detail. They appear in alphabetic sequence 
+of their individual names. See <xref target="nts-messages-4-ptp"/> for the application of 
+the records in the respective messages.</t>
+
+<t>Note: For easier editing of the content, most of the descriptions in the following 
+subsections are written as bullet points.</t>
+
+
+
+<section anchor="aead-negotiation" title="AEAD Algorithm Negotiation">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-TSR protocol.</t>
+
+
+	<t>This record is required in Ticket-based mode (TiM) and enables the negotiation of the AEAD 
+	algorithm needed to encrypt and decrypt the encrypted payload of the ticket (see <xref target="aead-operation"/>). 
+	The negotiation takes place between the PTP grantor and the NTS-KE server by using the NTS registration messages. The 
+	structure and properties follow the record defined in IETF RFC 8915 <xref target="RFC8915"/>, Section 4.1.5.</t>
+
+	<t>Content and conditions:</t>
+	<t><list style="symbols">
+	   <t>The record has a Record Type number of 4 and the Critical Bit MAY be set.</t>
+	   <t>The Record Body contains a sequence of 16-bit unsigned integers in network byte order:<vspace blankLines="1" />
+	      <spanx style="strong">Supported AEAD Algorithms = {AEAD 1 || AEAD 2 || …}</spanx></t>
+	</list></t>
+
+	<!-- <t>Supported AEAD Algorithms = {AEAD 1 || AEAD 2 || …}</t>   -->
+
+	<t><list style="symbols">
+		<t>Each integer represents a numeric identifier of an AEAD algorithm registered by the IANA
+		   in <xref target="IANA AEAD"/>.</t>
+		<t>Duplicate identifiers SHOULD NOT be included.</t>
+		<t>Grantor and NTS-KE server MUST support at least the AEAD_AES_SIV_CMAC_256 algorithm.</t>
+		<t>A list of recommended AEAD algorithms is shown in the following <xref target="tbl_aead"/>.</t> 
+	    <t>Other AEAD algorithms MAY also be used.</t>
+	</list></t>
+	
+	<texttable anchor="tbl_aead" title="Recommended AEAD algorithms">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Numeric ID</ttcol>
+        <ttcol align="left">AEAD Algorithm</ttcol>
+        <ttcol align="left">Use</ttcol>
+        <ttcol align="center">Key Length (Octets)</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>15</c>
+          <c>AEAD_AES_SIV_CMAC_256</c>
+          <c>mand.</c>                      <!-- abbreviated, table to large in text mode  -->
+          <c>32</c>
+          <c><xref target="RFC5297"/></c>
+		<!-- 2nd row:  -->
+          <c>16</c>
+          <c>AEAD_AES_SIV_CMAC_384</c>
+          <c>opt.</c>                      <!-- abbreviated, table to large in text mode  -->
+          <c>48</c>
+          <c><xref target="RFC5297"/></c>
+		<!-- 3rd row:  -->
+          <c>17</c>
+          <c>AEAD_AES_SIV_CMAC_512</c>
+          <c>opt.</c>                      <!-- abbreviated, table to large in text mode  -->
+          <c>64</c>
+          <c><xref target="RFC5297"/></c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+	
+	<t>PTP Registration Request message:</t>
+
+	<t><list style="symbols">
+		<t>In a PTP Registration Request message, this record MUST be contained exactly once.</t>
+		<t>In that message at least one algorithm MUST be included, e.g., the AEAD_AES_SIV_CMAC_256 algorithm.</t>
+		<t>If multiple AEAD algorithms are supported, the grantor SHOULD put the algorithm identifiers in descending priority in the Record Body.</t>
+		<t>Strong algorithms with higher bit lengths SHOULD have higher priority.</t>
+		<t>The NTS-KE server SHOULD choose the highest priority AEAD algorithm from the request message that grantor and NTS-KE server support.</t>
+		<t>The NTS-KE server MAY ignore the priority and choose a different algorithm that grantor and NTS-KE server support.<vspace blankLines="1" /></t>
+	</list></t>
+
+	<t>PTP Registration Response message:</t>
+
+	<t><list style="symbols">
+		<t>In a PTP Registration Response message, this record MUST contain exactly one AEAD algorithm.</t>
+		<t>This record MUST be contained exactly once in the Current Parameters container record and exactly 
+		   once in the Next Parameters container record (if available).</t>
+		<t>The selected AEAD algorithm in the Current Parameters container record MAY differ from the selected 
+		   AEAD algorithm in the Next Parameters container record.</t>
+	</list></t>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="association-mode" title="Association Mode">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE protocol.</t>
+
+	<t>This record enables the NTS-KE server to distinguish between the operation modes (GrM/TiM) 
+	   of a PTP Key Request message. A GrM request carries a group number, while a TiM request 
+	   contains an identification attribute of the desired grantor (e.g., IP address or PortIdentity).</t>
+	
+
+	<t>Content and conditions:</t>
+	<t><list style="symbols">
+	   <t>In a PTP Key Request message, this record MUST be contained exactly once.</t>
+	   <t>The record has a Record Type number of TBD01 and the Critical Bit MAY be set.</t>
+	   <t>The Record Body SHALL consist of one association tuple concatenating an Association Type 
+	      and an Association Value:</t>
+	</list></t>
+	
+	<texttable anchor="tbl_assoc" title="Association Mode record">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="center">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Association Type</c>
+          <c>2</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>Association Value</c>
+          <c>A</c>
+          <c>2</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+	<t><list style="symbols">
+       <t>The Association Type is a 16-bit unsigned integer.</t>
+       <t>The length of Association Value depends on the value of Association Type.</t>
+       <t>All data in the fields are stored in network byte order.</t>
+       <t>The type numbers for Association Type, together with the length and content of Association Value, 
+	      are shown in the table below, with further details given subsequently.</t>
+	</list></t>
+
+	<texttable anchor="tbl_assoc_types" title="Association Types">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Description</ttcol>
+        <ttcol align="center">Assoc. Type Number</ttcol>
+        <ttcol align="left">Association Mode</ttcol>
+        <ttcol align="left">Association Value Content</ttcol>
+        <ttcol align="center">Assoc. Value Octets</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Group</c>
+          <c>0</c>
+          <c>GrM</c>
+          <c>Group Number</c>
+          <c>4</c>
+		<!-- 2nd row:  -->
+          <c>IPv4</c>
+          <c>1</c>
+          <c>TiM</c>
+          <c>IPv4 address of the target port</c>
+          <c>4</c>
+		<!-- 3rd row:  -->
+          <c>IPv6</c>
+          <c>2</c>
+          <c>TiM</c>
+          <c>IPv6 address of the target port</c>
+          <c>16</c>
+		<!-- 4th row:  -->
+          <c>802.3</c>
+          <c>3</c>
+          <c>TiM</c>
+          <c>MAC address of the target port</c>
+          <c>6</c>
+		<!-- 5th row:  -->
+          <c>PortIdentity</c>
+          <c>4</c>
+          <c>TiM</c>
+          <c>PortIdentity of the target PTP entity</c>
+          <c>10</c>
+		<!-- 6th row:  -->
+		  <c></c>
+          <c>5 - 32767</c>
+          <c>Unassigned</c>
+		  <c></c>
+		  <c></c>
+		<!-- 7th row:  EMPTY  -->
+          <c></c>
+          <c></c>
+		  <c></c>
+		  <c></c>
+		  <c></c>
+		<!-- 8th row:  -->
+		  <c></c>
+          <c>32768 - 65565</c>
+          <c>Reserved for Private or Experimental Use</c>
+		  <c></c>
+		  <c></c>
+		  
+
+<!--    <postamble>Unicast*: </postamble>  -->
+    </texttable>
+	
+    <t>Group:</t>
+	<t><list style="symbols">
+
+      <t>This Association Type allows a PTP instance to join a GrM group.</t>
+      <t>The Association Value is a 32-bit unsigned integer in network byte order.</t>
+      <t>The group number can be freely specified by the administrator.</t>
+      
+	</list></t>
+	
+
+
+<t>IPv4:</t>
+	<t><list style="symbols">
+      <t>This Association Type allows a requester to establish a PTP unicast connection to the desired grantor.</t>
+      <t>The Association Value contains the IPv4 address of the target PTP entity.</t>
+      <t>The total length is 4 octets.</t>
+	</list></t>
+	
+<t>IPv6:</t>
+	<t><list style="symbols">
+      <t>This Association Type allows a requester to establish a PTP unicast connection to the desired grantor.</t>
+      <t>The Association Value contains the IPv6 address of the target PTP entity.</t>
+      <t>The total length is 16 octets.</t>
+	</list></t>
+	
+<t>802.3:</t>
+	<t><list style="symbols">
+      <t>This Association Type allows a requester to establish a PTP unicast connection to the desired grantor.</t>
+      <t>The Association Value contains the MAC address of the Ethernet port of the target PTP entity.</t>
+      <t>The total length is 6 octets.</t>
+      <t>This method supports the IEEE 802.3 mode in PTP, where no UDP/IP stack is used.</t>
+	</list></t>
+	
+<t>PortIdentity:</t>
+	<t><list style="symbols">
+      <t>This Association Type allows a requester to establish a PTP unicast connection to the desired grantor.</t>
+      <t>The Association Value contains the PortIdentity of the target PTP entity.</t>
+      <t>The total length is 10 octets.<vspace blankLines="1" /></t>
+
+      <t>The PortIdentity consists of the attributes clockIdentity (8 octet array) 
+	     and portNumber (16-bit unsigned integer), see <xref target="IEEE1588-2019"/>, 
+		 Sections 5.3.5 and 7.5:<vspace blankLines="1" />
+		 
+	     <spanx style="strong">PortIdentity = {clockIdentity || portNumber}</spanx></t>
+	</list></t>
+	
+	
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<!-- Current Parameters hierein -->
+<section anchor="current-parameters-container" title="Current Parameters">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+	<t>This record is a simple container that can carry an arbitrary number of NTS 
+	records. It holds all security parameters relevant for the current validity period. 
+	The content as well as further conditions are defined by the respective NTS messages. 
+	The order of the included records is arbitrary and the parsing rules are so far 
+	identical with the NTS message. One exception: An End of Message record SHOULD NOT 
+	be present and MUST be ignored. When the parser reaches the end of the Record Body 
+	quantified by the Body Length, all embedded records have been processed.</t>
+
+	<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD02 and the Critical Bit MAY be set.</t>
+       <t>The Record Body is defined as a set of records and MAY contain the records 
+	      shown in <xref target="tbl_curr_param_key"/> respectively in <xref target="tbl_curr_param_registration"/>.</t>
+	   <t>The NTS-KE server MUST NOT add any other records and the client MUST ignore other records.</t>
+       </list></t>
+	
+	   
+	<t>PTP Key Response message:</t>	   
+
+
+	<texttable anchor="tbl_curr_param_key" title="Current Parameters container for PTP Key Response message">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Communication Type</ttcol>
+        <ttcol align="left">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Security Associations</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+          <c> <xref target="security-association"/></c>
+		<!-- 2nd row:  -->
+          <c>Validity Period</c>
+          <c>GrM / TiM</c>
+          <c>mandatory</c>
+          <c> <xref target="validity-period"/></c>
+		<!-- 3rd row:  -->
+          <c>PTP Time Server</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+          <c> <xref target="ptp-time-server"/></c>
+		<!-- 4th row:  -->
+          <c>Ticket</c>
+          <c>TiM</c>
+          <c>mandatory</c>
+          <c> <xref target="ticket"/></c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+	   
+	<t><list style="symbols">
+       <t>In a PTP Key Response message, this record MUST be contained exactly once.</t>
+       <t>The records Security Association and Validity Period MUST be contained exactly once.</t>
+       <t>Additionally, the records PTP Time Server and Ticket MUST be included exactly once if 
+	      the client had sent a PTP Key Request message for TiM and MUST NOT be included if the client had sent a 
+		  PTP Key Request message for a multicast group in GrM.</t>
+       </list></t>
+
+
+	<t>PTP Registration Response message:</t>	   
+
+	<t><list style="symbols">
+       <t>In a PTP Registration Response message, the Current Parameters container record MUST be contained exactly once.</t>
+       <t>The Record Body MUST contain the following records exactly once:</t>
+       </list></t>
+	   
+	
+	<texttable anchor="tbl_curr_param_registration" title="Current Parameters container for PTP Registration Response Message">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">NTS Record Name</ttcol>
+        <ttcol align="left">Use</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>AEAD Algorithm Negotiation</c>
+          <c>mandatory</c>
+          <c> <xref target="aead-negotiation"/></c>
+		<!-- 2nd row:  -->
+          <c>Validity Period</c>
+          <c>mandatory</c>
+          <c> <xref target="validity-period"/></c>
+		<!-- 3rd row:  -->
+		  <c>Ticket Key ID</c>
+          <c>mandatory</c>
+          <c> <xref target="ticket-key-id"/></c>
+		<!-- 4th row:  -->
+          <c>Ticket Key</c>
+          <c>mandatory</c>
+          <c> <xref target="ticket-key"/></c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="end-of-message" title="End of Message">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+
+<t>The End of Message record is defined in IETF RFC 8915 <xref target="RFC8915"/>, Section 4 and 4.1.1.</t>
+
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of 0 and a zero-length body.</t>
+       <t>The Critical Bit MUST be set.</t>
+       <t>This record MUST occur exactly once as the final record of every NTS message.</t>
+       <t>This record SHOULD NOT be included in the container records and MUST be ignored if present.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="error" title="Error">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+<t>The Error record is defined in IETF RFC 8915 <xref target="RFC8915"/>, Section 4.1.3. In addition to the 
+Error codes 0 to 2 specified there the following Error codes were added:</t>
+
+	<texttable anchor="tbl_error" title="Error Codes">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Error Code</ttcol>
+        <ttcol align="left">Description</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>0</c>
+          <c>Unrecognized Critical Record</c>
+		<!-- 2nd row:  -->
+          <c>1</c>
+          <c>Bad Request</c>
+		<!-- 3rd row:  -->
+          <c>2</c>
+          <c>Internal Server Error</c>
+		<!-- 4th row:  -->
+          <c>TBD-E01</c>
+          <c>Not Authenticated</c>
+		<!-- 5th row:  -->
+          <c>TBD-E02</c>
+          <c>Not Authorized</c>
+		<!-- 6th row:  -->
+          <c>TBD-E03</c>
+          <c>Algorithms Not Supported</c>
+		<!-- 7th row:  -->
+          <c>TBD-E04</c>
+          <c>Grantor Not Registered</c>
+		<!-- 8th row:  -->
+          <c>TBD-E - 32767</c>
+          <c>Unassigned</c>
+		<!-- 9th row:  -->
+          <c>32768 - 65535</c>
+          <c>Reserved for Private or Experimental Use</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of 2 and body length of two octets consisting 
+	      of an unsigned 16-bit integer in network byte order, denoting an error code.</t>
+       <t>The Critical Bit MUST be set.<vspace blankLines="1" /></t>
+
+       <t>The Error code TBD-E01 "Not Authenticated" is sent by the NTS-KE server if the requesting client
+	      is not authenticated by its certificate.</t>
+       <t>The Error code TBD-E02 "Not Authorized" is sent by the NTS-KE server if the requesting client 
+	      is not authorized to join the desired multicast group or if a grantor is prohibited 
+		  to register with the NTS-KE server.</t>
+       <t>The Error code TBD-E03 "Algorithms Not Supported" is sent by the NTS-KE server if the security 
+	      algorithms presented by the requesting client or the requesting grantor are not supported.</t>
+       <t>The Error code TBD-E04 "Grantor Not Registered" is sent by the NTS-KE server when the requester 
+	      asks for the Security Association for a grantor that is not registered with the NTS-KE server.</t>
+       <t>The Error record MUST NOT be included in any of the messages PTP Key Request, PTP Registration 
+	      Request and PTP Registration Revoke.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+
+<section anchor="next-parameters-container" title="Next Parameters">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+	<t>This record is a simple container that can carry an arbitrary number of 
+	NTS records. It holds all security parameters relevant for the upcoming 
+	validity period. The content as well as further conditions are defined by 
+	the respective NTS messages. The order of the included records is arbitrary 
+	and the parsing rules are so far identical with the NTS message. One 
+	exception: An End of Message record SHOULD NOT be present and MUST be 
+	ignored. When the parser reaches the end of the Record Body quantified 
+	by the Body Length, all embedded records have been processed.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD03 and the Critical Bit MAY be set.</t>
+       <t>The Record Body is defined as a set of records.</t>
+       <t>The structure of the record body and all conditions MUST be identical to the rules 
+	      described in <xref target="current-parameters-container"/> of this document.<vspace blankLines="1" /></t>
+
+       <t>Outside the update period, this record MUST NOT be included.</t>
+       <t>In both, the PTP Key Response and PTP Registration Response message, this record SHOULD 
+	      be contained exactly once during the update period.</t>
+       <t>In GrM, this record MAY also be missing if the requesting client is to be 
+	      explicitly excluded from a multicast group after the security parameter rotation 
+		  process by the NTS-KE server.</t>
+       <t>More details are described in <xref target="key-update"/>.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="nts-next-protocol-nego" title="NTS Next Protocol Negotiation">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE protocol.</t>
+
+<t>The Next Protocol Negotiation record is defined in IETF RFC 8915 <xref target="RFC8915"/>, Section 4.1.2:</t>
+
+    <t><list>
+		<t><spanx style="emph">&quot;The Protocol IDs listed in the client's NTS Next Protocol Negotiation record denote 
+		those protocols that the client wishes to speak using the key material established 
+		through this NTS-KE server session. Protocol IDs listed in the NTS-KE server's response 
+		MUST comprise a subset of those listed in the request and denote those protocols that 
+		the NTP server is willing and able to speak using the key material established through 
+		this NTS-KE server session. The client MAY proceed with one or more of them. The request 
+		MUST list at least one protocol, but the response MAY be empty.&quot;</spanx></t>
+    </list></t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of 1 and the Critical Bit MUST be set.</t>
+       <t>The Record Body consists of a sequence of 16-bit unsigned integers in network byte order.<vspace blankLines="1" />
+          <spanx style="strong">Record body = {Protocol ID 1 || Protocol ID 2 || …}</spanx><vspace blankLines="1" /></t>
+
+        <!--   Record body = {Protocol ID 1 || Protocol ID 2 || …}   -->
+
+       <t>Each integer represents a Protocol ID from the IANA "Network Time Security Next Protocols" registry (tbd.) as shown in the table below.</t>
+       <t>For NTS request messages for PTPv2.1 (NTS-KE protocol merely), only the Protocol ID for PTPv2.1 SHOULD be included.</t>
+       <t>This prevents the mixing of records for different time protocols.</t> 
+       </list></t>
+
+
+	<texttable anchor="tbl_next_protocol_ids" title="NTS next protocol IDs">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Protocol ID</ttcol>
+        <ttcol align="left">Protocol Name</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>0</c>
+          <c>Network Time Protocol version 4 (NTPv4)</c>
+          <c><xref target="RFC8915"/>, Section 7.7</c>
+		<!-- 2nd row:  -->
+          <c>TBD-P01</c>
+          <c>Precision Time Protocol version 2.1 (PTPv2.1)</c>
+          <c>This document</c>
+		<!-- 3rd row:  -->
+          <c>TBD-P - 32767</c>
+          <c>Unassigned</c>
+          <c></c>
+		<!-- 4th row:  -->
+          <c>32768 - 65535</c>
+          <c>Reserved for Private or Experimental Use</c>
+          <c></c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+
+<t>Possible NTP/PTP conflict:</t>
+
+	<t><list style="symbols">
+       <t>The support of multiple protocols in this record may lead to the problem 
+	      that records in NTS messages can no longer be assigned to a specific time protocol.</t>
+       <t>For example, an NTS request could include records for both NTP and PTP.</t>
+       <t>However, NTS for NTP does not use NTS message types and the End of Message record is also 
+	   not defined for the case of multiple NTS requests in one TLS message.</t>
+       <t>This leads to the mixing of the records in the NTS messages.<vspace blankLines="1" /></t>
+
+       <t>A countermeasure is the use of only a single time protocol in the NTS Next Protocol 
+	   Negotiation record that explicitly assigns the NTS message to a specific time protocol.</t> 
+       <t>When using NTS-secured NTP and NTS-secured PTP, two separate NTS requests i.e., two 
+	   separate TLS sessions MUST be made.</t>
+       </list></t>
+
+	   
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="nts-message-type" title="NTS Message Type">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-TSR protocol.</t>
+
+<t>This record enables the distinction between different NTS message types and message versions for
+   the NTS-TSR protocol. It MUST be included exactly once in each NTS message in the NTS-TSR protocol.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD04 and the Critical Bit MUST be set.</t>
+       <t>The Record Body MUST consist of three data fields:</t>
+       </list></t>
+
+	<texttable anchor="tbl_content_message_type" title="Content of the NTS Message Type record">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="left"> </ttcol>
+        <ttcol align="left">Octets</ttcol>
+        <ttcol align="left">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Message Type</c>
+          <c></c>
+          <c>2</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>Message Version</c>
+          <c>Major version</c>
+          <c>1</c>
+          <c>2</c>
+		<!-- 3rd row:  -->
+          <c>Message Version (cont.)</c>
+          <c>Minor version</c>
+          <c>1</c>
+          <c>3</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+	   
+	<t><list style="symbols">
+       <t>The Message Type field is a 16-bit unsigned integer in network byte order, denoting the 
+	      type of the current NTS message.</t>
+       <t>The following values (tbd. by IANA) are defined for the Message Type:</t>
+       </list></t>
+	   
+
+
+	<texttable anchor="tbl_message_type" title="NTS Message Types for the NTS-TSR protocol">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Message Type (value)</ttcol>
+        <ttcol align="left">NTS Message (NTS-TSR protocol)</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>TBD-T00</c>
+          <c>PTP Registration Request</c>
+		<!-- 2nd row:  -->
+          <c>TBD-T01</c>
+          <c>PTP Registration Response</c>
+		<!-- 3rd row:  -->
+          <c>TBD-T02</c>
+          <c>PTP Registration Revoke</c>
+		<!-- 4th row:  -->
+          <c>TBD-T - 32767</c>
+          <c>Unassigned</c>
+		<!-- 5th row:  -->
+          <c>32768 - 65535</c>
+          <c>Reserved for Private or Experimental Use</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+	<t><list style="symbols">
+       <t>The Message Version consists of a tuple of two 8-bit unsigned integers in network byte order:<vspace blankLines="1" />
+          <spanx style="strong">NTS Message Version = {major version || minor version}</spanx><vspace blankLines="1" /></t>
+
+		<!--   NTS Message Version = {major version || minor version}   -->
+
+       <t>The representable version is therefore in the range 0.0 to 255.255 (e.g., v1.4 = 0104h).</t>
+       <t>All NTS messages for PTPv2.1 described in this document are in version number 1.0.</t>
+       <t>Thus the Message Version MUST match 0100h.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="ptp-time-server" title="PTP Time Server">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+<t>The PTP Time Server record is used exclusively in TiM (PTP unicast connection) and signals 
+   to the client (PTP requester) for which grantor the security parameters are valid. This record 
+   is used both, in the NTS-KE protocol in the PTP Key Response, and in NTS-TSR protocol in the PTP 
+   Registration Request message. </t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD05 and the Critical Bit MAY be set.</t>
+       <t>The record body consists of a set of association values constructed of the data tuple 
+	      which forms the record body of the Association Mode record described in 
+	      <xref target="association-mode"/> (Association Mode).</t>
+       <t>The structure of the record body and all conditions MUST be identical to the rules 
+	      described in <xref target="association-mode"/> (Association Mode) of this document, 
+		  with the following exceptions:<vspace blankLines="1" /></t>
+       </list></t>
+   
+	<t><list style="symbols">
+       <t>In a PTP Key Response message, this record MUST be contained exactly once within 
+	      a container record (e.g., Current Parameters container record).</t>
+       <t>The PTP Time Server record contains a list of all available addresses of the grantor 
+	      assigned by the NTS-KE server.</t>
+       <t>This MUST be one of the following association types: IPv4, IPv6, MAC address or the PortIdentity of the grantor.</t>
+       <t>As the record is only used in TiM, it MUST NOT be of the association type Group.</t>
+	   <t>The list SHALL contain only one of each association type.</t>
+	   <t>This allows the client to change the PTP transport mode (e.g., from IPv4 to IEEE 802.3) 
+	      without performing a new NTS request.</t>
+       <t>The list in the PTP Time Server record MUST contain at least the PortIdentity.</t>
+       </list></t>
+
+	<t><list style="symbols">
+       <t>In a PTP Registration Request message, this record MUST be included exactly once.</t>
+       <t>The grantor MUST enter all network addresses that are supported for a unicast connection.</t>
+       <t>This can be an IPv4, IPv6, MAC address, as well as the PortIdentity.</t>
+       <t>The list in the PTP Time Server record MUST NOT contain the Association Type number 0 
+	      (multicast group) and MUST contain at least the PortIdentity.</t>
+       <t>The PortIdentity is especially needed by the NTS-KE server to identify the correct PTP 
+	      instance (the grantor) in case of a PTP Registration Revoke message and enables a 
+		  requester to more easily identify a grantor, e.g., in the SAD.</t>
+       </list></t>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="security-association" title="Security Association">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE protocol.</t>
+
+<t>This record contains the information &quot;how&quot; specific PTP message types must be secured. 
+It comprises all dynamic (negotiable) values necessary to construct the AUTHENTICATION 
+TLV (IEEE Std 1588-2019, Section 16.14.3). Static values and flags, such as the secParamIndicator, 
+are described in more detail in <xref target="auth-tlv-parameters"/>.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD06 and the Critical Bit MAY be set.</t>
+       <t>The Record Body is a sequence of various parameters in network byte order and MUST be 
+	      formatted according to the following table:</t>
+       </list></t>
+
+
+	<texttable anchor="tbl_security_assoc" title="Security Association record">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="center">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Integrity Algorithm Type</c>
+          <c>2</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>Key ID</c>
+          <c>4</c>
+          <c>2</c>
+		<!-- 3rd row:  -->
+          <c>Key Length</c>
+          <c>2</c>
+          <c>6</c>
+		<!-- 4th row:  -->
+          <c>Key</c>
+          <c>K</c>
+          <c>8</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+
+	<t><list style="symbols">
+       <t>In a PTP Key Response message, the Security Association record MUST be included exactly once in the 
+	      Current Parameters container record.</t>
+       <t>In a PTP Key Response message during the update period, the Security Association record MUST be 
+	      included exactly once in the Current Parameters container record.</t>
+       <t>The Next Parameters container record MUST be present only during the update period.</t>
+       <t>In TiM, the Security Association record MUST be included exactly once in the 
+	      encrypted Ticket as well.</t>
+       </list></t>
+	   
+	   
+	   
+	   
+<t>Integrity Algorithm Type</t>
+
+	<t><list style="symbols">
+       <t>This value is a 16-bit unsigned integer in network byte order.</t>
+       <t>The possible values are equivalent to the MAC algorithm types from the table in <xref target="supported-mac-algos"/>.</t>
+       <t>The value used depends on the negotiated or predefined MAC algorithm.</t>
+       </list></t>
+	   
+	   
+<t>Key ID</t>
+
+	<t><list style="symbols">
+       <t>The key ID is a 32-bit unsigned integer in network byte order.</t>
+       <t>The field length is oriented towards the structure of the AUTHENTICATION TLV.</t>
+       <t>The generation and management of the key ID is controlled by the NTS-KE server.</t>
+       <t>The NTS-KE server MUST ensure that every key ID is unique.
+	   <list style="symbols">
+           <t>Previous key IDs SHOULD NOT be reused for a certain number of rotation periods or a defined period of 
+              time (see <xref target="sa-spp-management"/>).</t>
+           </list></t>
+       </list></t>	   
+	   
+<t>Key Length</t>
+	<t><list style="symbols">
+
+       <t>This value is a 16-bit unsigned integer in network byte order, denoting the length of the key in octets.</t>
+       </list></t>
+	   
+
+<t>Key</t>
+
+	<t><list style="symbols">
+       <t>The value is a sequence of octets with a length of Key Length.</t>
+       <t>This symmetric key is needed together with the MAC algorithm to calculate the ICV.</t>
+       <t>It can be both a group key (GrM) or a unicast key (TiM).</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="source-portidentity" title="Source PortIdentity">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+<t>This record contains a PTP PortIdentity and serves as an identifier. In a PTP Key Request message, 
+   it enables the unique assignment of the NTS request to the PTP instance of the sender, since the 
+   request may have been sent to the NTS-KE server via a management port. </t>
+
+<t>The PortIdentity is embedded in the PTP Key Response message within the ticket to bind it to the 
+   PTP requester. Grantors can verify that the ticket comes from the correct sender when it is received 
+   and before it is decrypted, to prevent possible crypto-performance attacks. In a PTP registration 
+   Revoke message this record enables the assignment of the grantor at the NTS-KE server to revoke an 
+   existing registration. This is necessary because requesting PTP devices may have multiple independent 
+   PTP ports and possibly multiple registrations with the KE. </t>
+
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD07 and the Critical Bit MAY be set.</t>
+       <t>The record contains the PTP PortIdentity of the sender in network byte order, with a total length of 10 octets. </t>
+       <t>In a PTP Key Request message, this record MUST be included exactly once if the client intends a unicast request 
+	      in TiM and MUST NOT be included if the client intends to join a group in GrM.</t>
+       <t>In the messages PTP Key Response, PTP Registration Response and PTP Registration Revoke message, this record MUST 
+	      be included and exactly once.</t>
+	   <t>The PortIdentity consists of the attributes clockIdentity and portNumber:<vspace blankLines="1" />
+          <spanx style="strong">PortIdentity = {clockIdentity || portNumber}</spanx><vspace blankLines="1" /></t>
+
+		<!--   PortIdentity = {clockIdentity || portNumber}  -->
+
+       <t>The clockIdentity is an 8-octet array and the portNumber is a 16-bit unsigned integer (source: 
+	      <xref target="IEEE1588-2019"/>, Sections 5.3.5 and 7.5)</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+
+
+<section anchor="supported-mac-algos" title="Supported MAC Algorithms">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE and NTS-TSR protocol.</t>
+
+<t>This record allows free negotiation of the MAC algorithm needed to generate the ICV. Since 
+   multicast groups are restricted to a shared algorithm, this record is used mandatorily in 
+   a PTP Registration Request message and MAY be used (optionally) in a PTP Key Request message.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD08 and the Critical Bit MAY be set.</t>
+       <t>The Record Body contains a sequence of 16-bit unsigned integers in network byte order.<vspace blankLines="1" />
+          <spanx style="strong">Supported MAC Algorithms = {MAC 1 || MAC 2 || …}</spanx><vspace blankLines="1" /></t>
+		  
+       <t>Each integer represents a MAC Algorithm Type defined in the table below.</t>
+       <t>Duplicate identifiers SHOULD NOT be included.</t>
+       <t>Each PTP node MUST support at least the HMAC-SHA256-128 algorithm.</t>
+       </list></t>
+
+	<texttable anchor="tbl_mac_algo" title="MAC Algorithms">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">MAC Algorithm Types</ttcol>
+        <ttcol align="left">MAC Algorithm</ttcol>
+        <ttcol align="center">ICV Length (octets)</ttcol>
+        <ttcol align="left">Reference</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>TBD-A00</c>
+          <c>HMAC-SHA256-128</c>
+          <c>16</c>
+          <c><xref target="fiPS-PUB-198-1"/>, <xref target="IEEE1588-2019"/></c>
+		<!-- 2nd row:  -->
+          <c>TBD-A01</c>
+          <c>HMAC-SHA256</c>
+          <c>32</c>
+          <c><xref target="fiPS-PUB-198-1"/></c>
+		<!-- 3rd row:  -->
+          <c>TBD-A02</c>
+          <c>AES-CMAC</c>
+          <c>16</c>
+          <c><xref target="RFC4493"/></c>
+		<!-- 4th row:  -->
+          <c>TBD-A03</c>
+          <c>AES-GMAC-128</c>
+          <c>16</c>
+          <c><xref target="RFC4543"/></c>
+		<!-- 5th row:  -->
+          <c>TBD-A04</c>
+          <c>AES-GMAC-192</c>
+          <c>24</c>
+          <c><xref target="RFC4543"/></c>
+		<!-- 6th row:  -->
+          <c>TBD-A05</c>
+          <c>AES-GMAC-256</c>
+          <c>32</c>
+          <c><xref target="RFC4543"/></c>
+		<!-- 7th row:  -->
+          <c>TBD-A - 32767</c>
+          <c>Unassigned </c>
+          <c></c>
+          <c></c>
+		<!-- 8th row:  -->
+          <c>32768 - 65535</c>
+          <c>Reserved for Private or Experimental Use</c>
+          <c></c>
+          <c></c>
+
+		<postamble>No other MAC algorithms than the algorithms in the Table above MUST be used.</postamble>
+    </texttable>
+
+
+<t>In Group-based mode (GrM):</t>
+
+	<t><list style="symbols"> 
+       <t>This record is not necessary, since all PTP nodes in a multicast group MUST support the same MAC algorithm.</t>
+       <t>Therefore, this record SHOULD NOT be included in a PTP Key Request message and the NTS-KE server MUST ignore 
+	      this record if the Association Type in the Association Mode record is 0 (= GrM group).</t>
+       <t>Unless this is specified otherwise by a PTP profile, the HMAC-SHA256-128 algorithm SHALL be used by default.</t>
+       </list></t>
+
+<t>In Ticket-based mode (TiM):</t> 
+
+	<t><list style="symbols">
+       <t>In a PTP Key Request message, this record MAY be contained if the requester wants a unicast 
+	      connection (TiM) to a specific grantor.</t>
+       <t>The requester MUST NOT send more than one record of this type.</t>
+       <t>If this record is present, at least one MAC algorithm MUST be included.</t>
+       <t>If multiple MAC algorithms are supported, the requester SHOULD put the desired algorithm 
+	      identifiers in descending priority in the record body.</t>
+       <t>Strong algorithms with higher bit lengths SHOULD have higher priority.<vspace blankLines="1" /></t>
+
+
+       <t>In a PTP Registration Request message, this record MUST be present and the grantor MUST include all supported MAC algorithms in any order.</t>
+       <t>The NTS-KE server selects the algorithm after receiving a PTP Key Request message in unicast mode.</t>
+       <t>The NTS-KE server SHOULD choose the highest priority MAC algorithm from the request message that grantor and requester support.</t>
+       <t>The NTS-KE server MAY ignore the priority and choose a different algorithm that grantor and requester support.</t>
+       <t>If the MAC Algorithm Negotiation record is not within the PTP Key Request message, the NTS-KE server MUST choose the default algorithm HMAC-SHA256-128.</t>
+       </list></t>
+
+<t>Initialization Vector (IV)</t>
+
+	<t><list style="symbols">
+       <t>If GMAC is to be supported as a MAC algorithm, then an Initialization Vector (IV) must be constructed according to IETF RFC 4543 <xref target="RFC4543"/>, Section 3.1.</t>
+       <t>Therefore, the IV MUST be eight octets long and MUST NOT be repeated for a specific key.</t> 
+       <t>This can be achieved, for example, by using a counter.</t>
+       </list></t>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="ticket" title="Ticket">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-KE protocol.</t>
+
+<t>This record contains the parameters of the negotiated AEAD algorithm chosen 
+between the grantor and the NTS-KE server, as well as an 
+encrypted security association. The record contains all the necessary 
+security parameters that the grantor needs for a secured PTP unicast connection to 
+the requester. The ticket is encrypted by the NTS-KE server with the 
+symmetric ticket key which is also known to the grantor. The requester is not able 
+to decrypt the encrypted security association within the ticket.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD09 and the Critical Bit MAY be set.</t>
+       <t>The Record Body consists of several data fields and MUST be formatted as follows.</t>
+       </list></t>
+
+
+
+	<texttable anchor="tbl_ticket" title="Structure of a Ticket record">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="center">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Ticket Key ID</c>
+          <c>4</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>Source PortIdentity</c>
+          <c>10</c>
+          <c>4</c>
+		<!-- 3rd row:  -->
+          <c>Nonce Length</c>
+          <c>2</c>
+          <c>14</c>
+		<!-- 4th row:  -->
+          <c>Nonce</c>
+          <c>N</c>
+          <c>16</c>
+		<!-- 5th row:  -->
+          <c>Encrypted SA Length</c>
+          <c>2</c>
+          <c>N+16</c>
+		<!-- 6th row:  -->
+          <c>Encrypted Security Association</c>
+          <c>E</c>
+          <c>N+18</c>
+
+    <!--      <postamble> </postamble>   -->
+    </texttable>
+
+
+
+	<t><list style="symbols">
+       <t>In a PTP Key Response message, this record MUST be included exactly once each in the 
+	      Current Parameters container record and the Next Parameters container record if the 
+		  requesting client wants a unicast communication to a specific grantor in TiM.</t>
+       </list></t>
+
+<t>Ticket Key ID</t>
+
+	<t><list style="symbols">
+       <t>This is a 32-bit unsigned integer in network byte order, denoting the key ID of the ticket key.</t>
+       <t>The value is set by the NTS-KE server and is valid for the respective validity period.</t>
+       <t>See also <xref target="ticket-key-id"/> for more details.</t>
+       </list></t>
+
+<t>Source PortIdentity</t>
+
+	<t><list style="symbols">
+       <t>This 10-octet long field contains the identical Source PortIdentity of the PTP client 
+	      from the PTP Key Request message.</t>
+       </list></t>
+
+<t>Nonce Length</t>
+
+	<t><list style="symbols">
+       <t>This is a 16-bit unsigned integer in network byte order, denoting the length of 
+	      the Nonce field in octets.</t>
+       </list></t>
+
+<t>Nonce</t>
+
+	<t><list style="symbols">
+       <t>This field contains the Nonce needed for the AEAD operation.</t>
+       <t>The length and conditions attached to the Nonce depend on the AEAD algorithm used.</t>
+       <t>More details and conditions are described in <xref target="aead-operation"/>.</t>
+       </list></t>
+
+<t>Encrypted SA Length</t>
+
+	<t><list style="symbols">
+       <t>This is a 16-bit unsigned integer in network byte order, denoting the length of 
+	      the Encrypted Security Association field in octets.</t>
+       </list></t>
+
+<t>Encrypted Security Association</t>
+
+	<t><list style="symbols">
+       <t>This field contains the output of the AEAD operation ("Ciphertext") after the encryption 
+	      process of the respective Record Body of the respective Security Association record.</t>
+       <t>The plaintext of this field is described in <xref target="security-association"/>.</t>
+       <t>More details about the AEAD process and the required input data are described in 
+	      <xref target="aead-operation"/>.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="ticket-key" title="Ticket Key">  <!-- 3. oberste Ebene -->
+
+	<t>This record is used in the NTS-TSR protocol.</t>
+
+<t>This record contains the ticket key, which together with an AEAD algorithm is 
+used to encrypt and decrypt the ticket payload (content of the Encrypted Security 
+Association field in the Ticket record).</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD10 and the Critical Bit MAY be set.</t>
+       <t>The Record Body consists of a sequence of octets holding the symmetric key for the AEAD function.</t>
+       <t>The generation and length of the key MUST meet the requirements of the associated AEAD 
+	      algorithm.<vspace blankLines="1" /></t>
+
+       <t>In a PTP Registration Response message, this record MUST be included exactly once each in 
+	      the Current Parameters container record and the Next Parameters container record.</t>
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="ticket-key-id" title="Ticket Key ID">  <!-- 3. oberste Ebene -->
+
+	<t>Used in NTS-TSR protocol.</t>
+
+<t>The Ticket Key ID record is a unique identifier that allows a grantor to identify the associated 
+   ticket key. The NTS-KE server is responsible for generating this key ID, which is also unique to 
+   the PTP network and incremented at each rotation period. The associated key is known only to the 
+   NTS-KE server and grantor, and is generated and exchanged during the registration phase of the 
+   grantor. All tickets generated by the NTS-KE server for the corresponding grantor in this validity 
+   period using the same ticket key ID.</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>The record has a Record Type number of TBD11 and the Critical Bit MAY be set.</t>
+       <t>The Record Body consists of a 32-bit unsigned integer in network byte order.</t>
+       <t>The generation and management of the ticket key ID is controlled by the NTS-KE server.</t>
+       <t>The NTS-KE server must ensure that every ticket key has a unique number.
+	   <list style="symbols">
+	      <t>The value is implementation dependent and MAY be an enumeration.</t>
+	      <t>Previous IDs SHOULD NOT be reused for a certain number of rotation periods or a defined 
+		     period of time.</t>
+          </list><vspace blankLines="1" /></t>
+       <t>In a PTP Registration Response message, this record MUST be included exactly once in the Current 
+	      Parameters container record and once in the Next Parameters container record.<vspace blankLines="1" /></t>
+       <t>The Ticket record MUST be present in TiM and MUST NOT be present in GrM.</t> 
+       </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+<section anchor="validity-period" title="Validity Period">  <!-- 3. oberste Ebene -->
+
+	<t>Used in NTS-KE and NTS-TSR protocol.</t>
+
+<t>This record contains the validity information of the respective security parameters (see also <xref target="key-update"/>).</t>
+
+<t>Content and conditions:</t>
+
+	<t><list style="symbols">
+       <t>In a PTP Key Response as well as in the PTP Registration Response message, this record 
+	      MUST be included exactly once each in the Current Parameters container record and 
+		  the Next Parameters container record.</t>
+
+       <t>The record has a Record Type number of TBD12 and the Critical Bit MAY be set.</t>
+       <t>The Record Body MUST consist of three data fields:</t>
+       </list></t>
+
+	<texttable anchor="tbl_validity_period" title="Structure of a Validity Period record">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="center">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>Lifetime</c>
+          <c>4</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>Update Period</c>
+          <c>4</c>
+          <c>4</c>
+		<!-- 3rd row:  -->
+          <c>Grace Period</c>
+          <c>4</c>
+          <c>8</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+<t>Lifetime</t>
+
+	<t><list style="symbols">
+       <t>The Lifetime is a 32-bit unsigned integer in network byte order.</t>
+       <t>If this record is within a Current Parameters container record, it shows the remaining 
+	      lifetime of the security parameters for the current validity period in seconds.</t>
+       <t>If this record is within a Next Parameters container record, it shows the total lifetime 
+	      of the security parameters for the next validity period in seconds.</t>
+       <t>The counting down of the Next Parameters lifetime starts as soon as the remaining 
+	      lifetime of the Current Parameters reaches 0s.</t>
+	   <t>The key lifetimes SHALL not exceed 24 hours, a lifetime of 1 hour is recommended.</t>
+       <t>The maximum value is set by the NTS-KE administrator or the PTP profile.</t>
+       <t>In conjunction with a PTP unicast establishment in TiM, the lifetime of the unicast 
+	      key (within the Security Association record), the ticket key and registration lifetime of 
+		  a grantor with the NTS-KE server MUST be identical.</t>
+       </list></t>
+
+<t>Update Period</t>
+
+	<t><list style="symbols">
+       <t>The Update Period is a 32-bit unsigned integer in network byte order.</t>
+       <t>It specifies how many seconds before the lifetime expires the update period starts.</t>
+       <t>Unlike the lifetime, this is a fixed value that is not counted down.</t>
+       <t>The Update Period value MUST NOT be greater than the full Lifetime.</t>
+       <t>Recommended is an Update Period of 120s-300s if the full Lifetime is 900s or longer.</t>
+       <t>If the value of the Update Period in the Current Parameters container record is greater 
+	      than the Lifetime, then the key update process has started.</t>
+       <t>The presence or absence of the Next Parameters container record is specified in 
+	      <xref target="next-parameters-container"/>.</t>
+       </list></t>
+
+<t>Grace Period</t>
+
+	<t><list style="symbols">
+       <t>The Grace Period is a 32-bit unsigned integer in network byte order.</t>
+       <t>It defines how many seconds expired security parameters SHOULD still be accepted.</t>
+       <t>This allows the verification of incoming PTP messages that were still on the network and 
+	      secured with the old parameters.</t>
+       <t>The Grace Period value MUST NOT be greater than the Update Period. </t>
+       <t>Recommended is a Grace Period of 0 to 5 seconds.</t>
+       </list></t>
+
+<t>Notes:</t>
+
+	<t><list style="symbols">
+       <t>Requests during the currently running lifetime will receive respectively adapted count values.</t>
+       <t>The lifetime is a counter that is decremented and marks the expiration of defined parameters 
+	      when the value reaches zero.</t>
+       <t>The realization is implementation-dependent and can be done for example by a secondly decrementing.</t>
+       <t>It MUST be ensured that jumps (e.g., by adjustment of the local clock) are avoided.</t>
+       <t>The use of a monotonic clock is suitable for this.</t>
+       <t>Furthermore, it is to be considered which consequences the drifting of the local clock can cause.</t>
+       <t>With sufficiently small values of the lifetime (&lt;12 hours), this factor should be negligible.</t>
+	   </list></t>
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+<!-- Marker -->
+
+
+<section anchor="additional-security" title="Additional Security Measures">  <!-- oberste Ebene -->
+
+	<t>As mentioned in <xref target="goals"/> the PTPv2.1 standard <xref target="IEEE1588-2019"/> 
+	   does not supply provisions against certain attacks, such as replay, start-up replay and 
+	   address spoofing. In addition to providing an automatic key management solution, this 
+	   document also addresses measures to fend off such attacks.</t>
+
+	<t>It should be emphasized that some other attack vectors, such as those based on message delay, 
+	   cannot be countered by cryptographic means. Therefore, other measures such as redundancy and 
+	   monitoring should be used, which are outside the scope of this document.</t>
+	   
+
+<section anchor="auth-tlv-parameters" title="AUTHENTICATION TLV Parameters">  <!-- 2. oberste Ebene -->
+
+<t>The AUTHENTICATION TLV is the heart of the integrated security mechanism (prong A) for PTP. 
+It provides data for the processing of the security means. The structure is shown 
+in <xref target="tbl_auth_tlv"/> below (see also figure 49 of <xref target="IEEE1588-2019"/>).</t>
+
+
+	<texttable anchor="tbl_auth_tlv" title="Structure of the AUTHENTICATION TLV ">
+    <!---   <preamble>(compare to figure 49 of <xref target="IEEE1588-2019"/>)</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">TLV Field</ttcol>
+        <ttcol align="left">Use</ttcol>
+        <ttcol align="left">Description</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>tlvType</c>
+          <c>mandatory</c>
+          <c>TLV Type</c>
+		<!-- 2nd row:  -->
+          <c>lengthField</c>
+          <c>mandatory</c>
+          <c>TLV Length Information</c>
+		<!-- 3rd row:  -->
+          <c>SPP</c>
+          <c>mandatory</c>
+          <c>Security Parameter Pointer</c>
+		<!-- 4th row:  -->
+          <c>secParamIndicator</c>
+          <c>mandatory</c>
+          <c>Security Parameter Indicator</c>
+		<!-- 5th row:  -->
+          <c>keyID</c>
+          <c>mandatory</c>
+          <c>Key Identifier or Current Key Disclosure Interval, depending on verification scheme</c>
+		<!-- 6th row:  -->
+          <c>disclosedKey</c>
+          <c>optional</c>
+          <c>Disclosed key from previous interval</c>
+		<!-- 7th row:  -->
+          <c>sequenceNo</c>
+          <c>optional</c>
+          <c>Sequence number</c>
+		<!-- 8th row:  -->
+          <c>RES</c>
+          <c>optional</c>
+          <c>Reserved</c>
+		<!-- 9th row:  -->
+          <c>ICV</c>
+          <c>mandatory</c>
+          <c>ICV based on algorithm OID</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+
+<t>The tlvType is AUTHENTICATION (0x8009) and lengthField holds the length of the total TLV in octets. 
+   When using the AUTHENTICATION TLV with NTS4PTP key management, the keyID is provided by 
+   the NTS-KE server in the PTP Key Response message. Due to the one-octet size limitation, 
+   the SPP is unused in NTS4PTP and remains 0, while the SA is identified by the keyID.</t>
+
+<t>The secParamIndicator field and its flags indicate which of the following optional fields are present.</t>
+
+<t>The disclosedKey field is only to be used with delayed security processing approach like 
+   a TESLA-based solution <xref target="RFC4082"/>. Therefore, it is always missing in NTS4PTP.</t>
+   
+<t>NTS4PTP uses the optional fields sequenceNo and RES to transport data for the additional security 
+   measures mentioned. Thus, the secParamIndicator MUST have a value of 0x03.</t>
+
+<t>The field keyID identifies the key currently to be used.</t>
+
+<t>The ICV field contains the integrity check value of the particular PTP message calculated using the 
+   integrity algorithm defined by the key management. The length depends on the MAC algorithm used.</t>
+
+<t>The following <xref target="sequenceNo_field"/> and <xref target="res_field"/> describe the usage of 
+   the sequenceNo field and the RES field in a way that has been proposed to IEEE1588 and is currently 
+   under discussion there.</t>
+
+
+<section anchor="sequenceNo_field" title="The sequenceNo Field">  <!-- 3. oberste Ebene -->
+
+	<t>In order to allow the flexible use of different security solutions, the field sequenceNo is structured as
+       shown in <xref target="tbl_sequenceNo"/>.</t>
+ 
+ 
+	<texttable anchor="tbl_sequenceNo" title="Structure of the sequenceNo field in the AUTHENTICATION TLV">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">sequenceNo Field</ttcol>
+        <ttcol align="left">Octets</ttcol>
+        <ttcol align="left">Offset</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>keyMgmtType</c>
+          <c>1</c>
+          <c>0</c>
+		<!-- 2nd row:  -->
+          <c>seqNoLength</c>
+          <c>1</c>
+          <c>1</c>
+		<!-- 3rd row:  -->
+		  <c>SeqID</c>
+          <c>S</c>
+          <c>2</c>
+
+    <!--      <postamble>which is a very simple example.</postamble>   -->
+    </texttable>
+
+
+ 
+   
+	<t>The keyMgmtType field specifies the key management solution used; for this document it is the number 0x01, identifying 
+	   NTS4PTP.  The seqNoLength field contains the number S of octets allocated to the following SeqID field. S MUST 
+	   be even. The field SeqID holds the respective sequence number used for the key management solution. This number 
+	   should not be confused with the sequenceID in the PTP header.</t>
+    
+   
+   
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+
+<section anchor="res_field" title="The RES Field – dataBlocks Field">  <!-- 3. oberste Ebene -->
+
+	<t>The former RES field, now called dataBlocks (see <xref target="tbl_res_field"/>), is used to 
+	   transport additional data required by security solutions. It can contain more than one data 
+	   block, each with its own type, length and data field. A dataBlockCnt field indicates the 
+	   number of dataBlocks present. As the octets in the dataBlocks (RES) field MUST be even,  
+	   possibly a padding octet can follow.</t>
+
+	<texttable anchor="tbl_res_field" title="Structure of the dataBlocks field (former RES field) in the AUTHENTICATION TLV">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">dataBlocks Field</ttcol>
+        <ttcol align="left">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+        <ttcol align="left">Remarks</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>dataBlockCnt</c>
+          <c>1</c>
+          <c>0</c>
+          <c>= N, number of data blocks</c>
+		<!-- 2nd row:  -->
+          <c>block1Type</c>
+          <c>1</c>
+          <c>1</c>
+          <c>type of data block 1</c>
+		<!-- 3rd row:  -->
+          <c>payLoadLength</c>
+          <c>2</c>
+          <c>2</c>
+          <c>length of its data = PD1</c>
+		<!-- 4th row:  -->
+          <c>payLoadData</c>
+          <c>PD1</c>
+          <c>4</c>
+          <c>block 1 data</c>
+		<!-- 5th row:  -->
+          <c>block2Type</c>
+          <c>1</c>
+          <c>4+PD1</c>
+          <c>if BC > 1, …</c>
+		<!-- 6th row:  -->
+          <c>payLoadLength</c>
+          <c>2</c>
+          <c>5+PD1</c>
+          <c>if BC > 1, …</c>
+		<!-- 7th row:  -->
+          <c>payLoadData</c>
+          <c>PD2</c>
+          <c>7+PD1</c>
+          <c>if BC > 1, …</c>
+		<!-- 8th row:  -->
+          <c>...</c>
+          <c>...</c>
+          <c>...</c>
+          <c>...</c>
+		<!-- 9th row:  -->
+          <c>blockNType</c>
+          <c>1</c>
+          <c></c>
+          <c>if BC = N …</c>
+		<!-- 10th row:  -->
+          <c>payLoadLength</c>
+          <c>2</c>
+          <c></c>
+          <c>if BC = N …, …</c>
+		<!-- 11th row:  -->
+          <c>payLoadData</c>
+          <c>PDN</c>
+          <c></c>
+          <c>if BC = N …</c>
+		<!-- 11th row:  -->
+          <c>padding</c>
+          <c>0/1</c>
+          <c></c>
+          <c></c>
+
+<!--		<postamble>   </postamble>  -->
+    </texttable>
+
+
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+
+<section anchor="nts4ptp_res_field" title="The NTS4PTP Data in the dataBlocks Field">  <!-- 3. oberste Ebene -->
+
+	<t>In addition to the sequenceNo field, NTS4PTP also uses a data block in the dataBlocks field 
+	   (formerly RES). As described in <xref target="res_field"/>, keyMgmtType indicates the security 
+	   solution, in this case NTS4PTP with the number 0x01. The payLoadLength field specifies the length of the NTS4PTP 
+	   data (payLoadData) in this data block. The payLoadData is structured as shown in 
+	   <xref target="tbl_NTS4PTP_block"/>. Some of the NTS4PTP payloadData fields are only included 
+	   in special situations.</t>
+
+	<texttable anchor="tbl_NTS4PTP_block" title="Structure of an NTS4PTP data block in the dataBlocks field of the AUTHENTICATION TLV">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="left">Field</ttcol>
+        <ttcol align="left">Octets</ttcol>
+        <ttcol align="center">Offset</ttcol>
+        <ttcol align="left">Remarks</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>ntsParamIndicator</c>
+          <c>1</c>
+          <c>0</c>
+          <c></c>
+		<!-- 2nd row:  -->
+          <c>uniqueIdentifier</c>
+          <c>16</c>
+          <c>1</c>
+          <c></c>
+		<!-- 3rd row:  -->
+          <c>sourceAddress</c>
+          <c>SrA</c>
+          <c>17</c>
+          <c></c>
+		<!-- 4th row:  -->
+          <c>ticket</c>
+          <c>T</c>
+          <c>4+17+SrA</c>
+          <c>see <xref target="ticket"/></c>
+		<!-- 5th row:  -->
+          <c>icvAlgoParam</c>
+          <c>IAP</c>
+          <c>17+SrA+T</c>
+          <c></c>
+
+<!--		<postamble>   </postamble>  -->
+    </texttable>
+
+
+
+
+	<t>The ntsParamIndicator field (see <xref target="tbl_ntsParamIndicator"/>) is always present and defines which of the other fields are contained 
+	   in the NTS4PTP payLoadData.</t>
+	   
+
+	<texttable anchor="tbl_ntsParamIndicator" title="Structure of the ntsParamIndicator Field">
+    <!--      <preamble>Tables use ttcol to define column headers and widths.
+               Every cell then has a "c" element for its content.</preamble>   -->
+
+		<!-- table header:  -->
+        <ttcol align="center">Bit 7</ttcol>
+        <ttcol align="center">Bit 6</ttcol>
+        <ttcol align="center">Bit 5</ttcol>
+        <ttcol align="center">Bit 4</ttcol>
+        <ttcol align="center">Bit 3</ttcol>
+        <ttcol align="center">Bit 2</ttcol>
+        <ttcol align="center">Bit 1</ttcol>
+        <ttcol align="center">Bit 0</ttcol>
+
+		<!-- columns:  --> 
+		<!-- 1st row:  -->
+          <c>res.</c>
+          <c>res.</c>
+          <c>res.</c>
+          <c>IcvAP</c>
+          <c>Tick</c>
+          <c>SrcA high</c>
+          <c>SrcA low</c>
+          <c>UID</c>
+
+<!--		<postamble>   </postamble>  -->
+    </texttable>
+
+
+<!--Liste -->
+	<t><list style="symbols">
+       <t>Bit 0 (UID) is 1 if a unique identifier (uniqueIdentifier field) is present. If the bit is 0, 
+	      there is no such uniqueIdentifier field in the NTS4PTP payLoadData.</t>
+       <t>Bits 2 and 1 (SrcA) indicate whether the sourceAddress field is present and its size. 
+	      If the bits are 00, there is no sourceAddress field in the NTS4PTP payLoadData. Otherwise, 
+		  the bits specify the address mode in the sourceAddress field: IPv4 (01: 4 octets), MAC 
+		  (10: 6 octets) or IPv6 (11: 16 octets).</t>
+       <t>Bit 3 (Tick) defines whether a ticket is included (1) for the transmission of encrypted 
+	      security information from a PTP requester to a PTP grantor in unicast mode (TiM, ticket-based 
+		  mode). If the bit is 0, no Ticket is included in the NTS4PTP payLoadData.</t>
+       <t>Bit 4 (IcvAP) indicates an included icvAlgoParam field (1) for use with security algorithms 
+	      for generating the ICV that require an initialization vector (IV) or a special nonce. If the 
+		  bit is 0, no icvAlgoParam field is included in the NTS4PTP payLoadData.</t>
+	   </list></t>
+
+
+
+	<t>The uniqueIdentifier field contains a 16-octet number that is used, for example, to mitigate 
+	   start-up replay attacks.</t>
+
+	<t>The sourceAddress field has a length of SrA octets and contains the address information of 
+	   the sending PTP instance to mitigate address spoofing attacks. Depending on the address mode 
+	   the length SrA is 4 (IPv4), 6 (MAC) or 16 octets (IPv6).</t>
+
+	<t>The Ticket field has a length of T octets and contains the body of a ticket record 
+	   (see <xref target="ticket"/>) in the ticket-based mode of NTS4PTP (TiM). It is 
+	   only present when a requester signals to a grantor that it wants a PTP unicast communication.</t>
+
+	<t>The icvAlgoParam field has a length of IAP octets and contains an initialization vector (IV) 
+	   or a special nonce for security algorithms that require such data to generate the ICV, such 
+	   as GMAC or AEAD. The length N is determined by the algorithm or specified by the administrator. 
+	   IAP must be even.</t>
+
+
+</section>  <!-- 3. oberste Ebene schließen -->
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+<section anchor="replay" title="Replay Protection">  <!-- 2. oberste Ebene -->
+
+	<t>Since the size of the sequence numbers in the PTP header is limited to 16 bits, which is 
+	   much too small, NTS4PTP uses its own sequence numbers SeqID in 32 bits in the sequenceNo 
+	   field (see <xref target="sequenceNo_field"/>), not to be confused with the sequenceID of 
+	   PTP in the header.</t>
+
+	<t>A size of 4 octets for the SeqID is large enough to avoid overflow during typical key 
+	   lifetimes. The PTP sequence numbers are not affected and are used as usual.</t>
+
+	<t>(At a high continuous rate of 1,000 messages/sec, in 24h a value of 86.4 million would 
+	   be reached and a potential overflow could occur after more than 49 days. Extreme message 
+	   rates above 16,000 per second would require shorter key lifetimes).</t>
+
+	<t>Each connection between two PTP communication partners has its own sequence of SeqIDs. 
+	   SeqIDs are only reset to zero when a new Security Association (SA) is started with a 
+	   new key. This applies to both, multicast (GrM, group-based mode) and unicast (TiM, 
+	   ticket-based mode) connections. In TiM, the SeqID is reset when the requester sends 
+	   the first (unicast key-) secured PTP message, usually a signaling message, containing 
+	   the received, partially encrypted ticket and asking for a so-called unicast contract, 
+	   which contains a request for a specific PTP message type as well as the desired frame 
+	   rate.</t>
+
+	<t>With each message exchange, the SeqID is incremented so that the receiving PTP instance 
+	   can verify the correct order and replay is mitigated. Overflow is very unlikely, see above.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+<section anchor="start-up_replay" title="Start-up Replay Protection">  <!-- 2. oberste Ebene -->
+
+	<t>The uniqueIdentifier field is used to fend off start-up replay attacks. It is required 
+	   at device start-up to verify the current SeqID. </t>
+
+	<t>When a slave PTP instance is reset or restarted, it does not know the current SeqID. 
+	   It connects to the NTS-KE server via TLS to obtain the current SA. The instance then 
+	   sends any PTP request message (e.g., DelayReq, PDelayReq or Signaling message) to its 
+	   master. In the AuthTLV, it includes a zero in the SeqID field and a 128-bit nonce as 
+	   a so-called uniqueIdentifier. With the response message (Delay_Resp, Pdelay_Resp, 
+	   Signaling response) it receives back the same nonce in the uniqueIdentifier field and 
+	   the current SeqID of the responder in the SeqID field. This allows the slave to be sure 
+	   that the message is the response to its request (challenge-response mechanism). The 
+	   integrity of the message exchange is protected by the respective ICV. This mitigates 
+	   replay attacks, especially at start-up. The PTP sequence numbers are not affected 
+	   and are used as usual.</t>
+
+	<t>The unique identifier data is also used in any bi-directional PTP communication, 
+	   providing additional security to this data exchange.</t>
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+<section anchor="addr_spoofing" title="Address Spoofing Protection">  <!-- 2. oberste Ebene -->
+
+	<t>The sourceAddress field contains the address information of the sending PTP instance to 
+	   prevent spoofing attacks. Depending on the address mode the length SrA is 4 (IPv4), 6 (MAC) 
+	   or 16 octets (IPv6). For spoofing protection, this field is always present.</t>
+
+	<t>In principle, the ICV only secures the PTP packet. The Ethernet/UDP/IP headers are not 
+	   secured. Without further checks, an attacker can manipulate the IP/MAC addresses of 
+	   secured PTP packets and try to influence the BMCA with manipulated Announce messages. 
+	   NTS4PTP solves this problem with an address field in the payLoadData of the NTS4PTP 
+	   data block in the AuthTLV. The address information and the SourcePortID are secured 
+	   and must be checked in every communication.</t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+
+<section anchor="additional-mechanisms" title="Additional Mechanisms">  <!-- oberste Ebene -->
+
+<t>This section provides information about the use of the negotiated 
+AEAD algorithm as well as the generation of the security policy pointers.</t>
+
+
+
+<section anchor="aead-operation" title="AEAD Operation">  <!-- 2. oberste Ebene -->
+
+<t>General information about AEAD:</t>
+
+	<t><list style="symbols">
+       <t>The AEAD operation enables the integrity protection and the optional encryption 
+	      of the given data, depending on the input parameters.</t>
+       <t>While the structure of the AEAD output after the securing operation is determined 
+	      by the negotiated AEAD algorithm, it usually contains an authentication tag in 
+		  addition to the actual ciphertext.</t>
+       <t>The authentication tag provides the integrity protection, whereas the ciphertext 
+	      represents the encrypted data.</t>
+       <t>The AEAD algorithms supported in this document (see <xref target="aead-negotiation"/>) 
+	      always return an authentication tag with a fixed length of 16 octets.</t> 
+       <t>The size of the following ciphertext is equal to the length of the plaintext.</t> 
+       <t>The concatenation of authentication tag and ciphertext always form the unit 
+	      "Ciphertext":<vspace blankLines="1" /><spanx style="strong">Ciphertext = {authentication 
+		  tag || ciphertext}</spanx><vspace blankLines="1" /></t>
+
+       <!--   Ciphertext = {authentication tag || ciphertext}   -->
+
+       <t>Hint: The term "Ciphertext" is distinguished between upper and lower case letters.</t>
+       <t>The following text always describes "Ciphertext".</t>
+       <t>Separation of the information concatenated in Ciphertext is not necessary at any time.<vspace blankLines="1" /></t>
+
+       <t>Six parameters are relevant for the execution of an AEAD operation:
+	      <list style="symbols">
+          <t>AEAD (...):  is the AEAD algorithm itself</t>
+          <t>A:  Associated Data</t>
+          <t>N:  Nonce</t>
+          <t>K:  Key</t>
+          <t>P:  Plaintext</t>
+          <t>C:  Ciphertext</t>
+          </list></t>
+
+       <t>The protection and encryption of the data is done as follows:  C = AEAD (A, N, K, P)</t>
+       <t>Therefore, the output of the AEAD function is the Ciphertext.<vspace blankLines="1" /></t>
+
+       <t>The verification and decryption of the data is done this way:  P = AEAD (A, N, K, C)</t>
+       <t>The output of the AEAD function is the Plaintext if the integrity verification is successful.</t> 
+       </list></t>
+
+
+<t>AEAD algorithm and input/output values for the Ticket record:</t>
+
+	<t><list style="symbols">
+       <t>AEAD (…):
+	      <list style="symbols">
+          <t>The AEAD algorithm that is negotiated between grantor and NTS-KE server during 
+		     the registration phase.</t>
+          <t>A list of the AEAD algorithms considered in this document can be found in 
+		     <xref target="aead-negotiation"/>.<vspace blankLines="1" /></t>
+          </list></t>
+
+       <t>Associated Data:
+	      <list style="symbols">
+          <t>The Associated Data is an optional AEAD parameter and can be of any length and 
+		     content, as long as the AEAD algorithm does not give any further restrictions.</t>
+          <t>In addition to the Plaintext, this associated data is also included in the 
+		     integrity protection.</t>
+          <t>When encrypting or decrypting the Security Association record, this parameter 
+		     MUST remain empty.<vspace blankLines="1" /></t>
+          </list></t>
+
+       <t>Nonce:	
+	      <list style="symbols">
+          <t>Corresponds to the value from the Nonce field in the Ticket (<xref target="ticket"/>).</t>
+          <t>The requirements and conditions depend on the selected AEAD algorithm.</t>
+          <t>For the AEAD algorithms defined in <xref target="aead-negotiation"/> (with 
+		     numeric identifiers 15, 16, 17), a cryptographically secure random number MUST be used.</t> 
+          <t>Due to the block length of the internal AES algorithm, the Nonce SHOULD have a length 
+		     of 16 octets.<vspace blankLines="1" /></t>
+          </list></t>
+
+       <t>Key:
+	      <list style="symbols">
+          <t>This is the symmetric key required by the AEAD algorithm.</t>
+          <t>The key length depends on the selected algorithm.</t>
+          <t>When encrypting or decrypting the Security Association record, the ticket key MUST be used.<vspace blankLines="1" /></t>
+          </list></t>
+
+       <t>Plaintext:
+	      <list style="symbols">
+          <t>This parameter contains the data to be encrypted and secured.</t>
+          <t>For AEAD encryption, this corresponds to the Record Body of the Security Association record with all parameters inside.</t>
+          <t>This is also the output of the AEAD operation after the decryption process.<vspace blankLines="1" /></t>
+          </list></t>
+
+       <t>Ciphertext:
+	      <list style="symbols">
+          <t>Corresponds to the value from the Encrypted Security Association field in the Ticket 
+		     (<xref target="ticket"/>).</t>
+          <t>The Ciphertext is the output of the AEAD operation after the encryption process.</t>
+          <t>This is also the input parameter for the AEAD decryption operation.</t>
+          </list></t>
+       </list></t>
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+<section anchor="sa-spp-management" title="SA/SP Management">  <!-- 2. oberste Ebene -->
+
+<t>This section describes the requirements and recommendations attached to SA/SPP management.</t>
+
+<t>Requirements for the Security Association Database management:</t>
+
+	<t><list style="symbols">
+       <t>The structure and management of the Security Association Database (SAD) are 
+	      implementation-dependent both on the NTS-KE server and on the PTP devices.</t>
+       <t>An example of this, as well as other recommendations, are described in Annex P 
+	      of IEEE Std 1588-2019 (<xref target="IEEE1588-2019"/>.</t>
+       <t>A PTP device MUST contain exactly one SAD and Security Policy Database (SPD).</t>
+      </list></t>
+
+
+
+<t>Key/Key ID generation:</t>
+
+	<t><list style="empty">
+       <t>The generation of the keys MUST be performed by using a Cryptographically 
+	      Secure Pseudo Random Number Generator (CSPRNG) on the NTS-KE server (see also 
+		  <xref target="key-generation"/>). The length of the keys depends on the MAC algorithm used. The 
+		  generation and management of the key ID is also controlled by the NTS-KE server. 
+		  The NTS-KE server MUST ensure that every key ID is unique at least within an 
+		  SA with multiple parameter sets. The value of the key ID is 
+		  implementation dependent and MAY be either a random number, a hash value or 
+		  an enumeration. Key IDs of expired keys MAY be reused but SHOULD NOT be reused 
+		  for a certain number of rotation periods or a defined period of time. Before 
+		  reusing a key ID, the NTS-KE server MUST be ensured that the key ID is no 
+		  longer in use in the PTP network (e.g., within Next Parameters).</t>
+      </list></t>
+
+
+</section>  <!-- 2. oberste Ebene schließen -->
+
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+
+
+
+
+
+
+
+<section anchor="iana-considerations" title="IANA Considerations">  <!-- oberste Ebene-->
+
+<t>TBD</t>
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+<section anchor="security-considerations" title="Security Considerations">  <!-- oberste Ebene -->
+<t>TBD </t>
+
+<t></t>
+
+<t></t>
+
+<t></t>
+
+
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+<section anchor="acknowledgements" title="Acknowledgements">  <!-- oberste Ebene -->
+<t>TBD</t>
+
+</section>  <!-- oberste Ebene schließen -->
+
+
+  </middle>
+
+  <back>
+
+     <references title='Normative References'>
+
+         &RFC2119;
+<!--		 &RFC4120;   Tool does not know the RFC, therefore see below -->
+<!--		 &RFC4082;   Tool does not know the RFC, therefore see below -->
+                  &RFC4543;         &RFC5116;         
+<!--		 &RFC5905;   Tool does not know the RFC, therefore see below -->
+<!--         &RFC6479;   Tool does not know the RFC, therefore see below -->
+<!--		 &RFC6960;   Tool does not know the RFC, therefore see below -->
+         &RFC7301;<!--         &RFC7525;  -->         &RFC8174;         &RFC8446;         &RFC8915;
+		 
+    <!-- References 
+
+		IETF RFC 2119 – BCP 14 (1997), "Key words for use in RFCs to Indicate Requirement Levels," S. Bradner, March 1997.
+		IETF RFC 7525 – BCP 195 (2015), "Recommendations for Secure Use of Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)," Y. Sheffer, R. Holz, P. Saint-Andre, May 2015.
+		IETF RFC 8174 – BCP 14 (2017), "Ambiguity of Uppercase vs. Lowercase in RFC 2119 Key Words," B. Leiba, May 2017.
+		fiPS PUB 198-1
+		IEEE Std 1588-2019 
+ITU-T Recommendation X.509 (2008), "Information technology – Open systems interconnection – The Directory: Public-key and attribute certificate frameworks", Nov. 2008. 
+
+    -->
+<!--<reference anchor="RFC4120" target="https://www.rfc-editor.org/info/rfc4120">
+		<front>
+			<title>The Kerberos Network Authentication Service (V5)</title>
+			<author fullname="C. Neuman" initials="C." surname="Neuman"/>
+			<author fullname="T. Yu" initials="T." surname="Yu"/>
+			<author fullname="S. Hartman" initials="S." surname="Hartman"/>
+			<author fullname="K. Raeburn" initials="K." surname="Raeburn"/>
+			<date month="July" year="2005"/>
+			<abstract>
+			<t>This document provides an overview and specification of Version 5 of the Kerberos protocol, 
+			and it obsoletes RFC 1510 to clarify aspects of the protocol and its intended use that require 
+			more detailed or clearer explanation than was provided in RFC 1510. This document is intended 
+			to provide a detailed description of the protocol, suitable for implementation, together with 
+			descriptions of the appropriate use of protocol messages and fields within those messages. [STANDARDS-TRACK]</t>
+			</abstract>
+		</front>
+			<seriesInfo name="RFC" value="4120"/>
+			<seriesInfo name="DOI" value="10.17487/RFC4120"/>
+</reference>
+-->
+
+
+    <reference anchor="RFC4082" target="https://www.rfc-editor.org/info/rfc4082" quoteTitle="true" derivedAnchor="RFC4082">
+          <front>
+            <title>Timed Efficient Stream Loss-Tolerant Authentication (TESLA): 
+			       Multicast Source Authentication Transform Introduction</title>
+            <author initials="A." surname="Perrig" fullname="A. Perrig">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="R." surname="Canetti" fullname="R. Canetti" role="editor">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="D." surname="Song" fullname="D. Song">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="D." surname="Tygar" fullname="D. Tygar">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="B." surname="Briscoe" fullname="B. Briscoe">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <date year="2018" month="December"/>
+            <abstract>
+              <t indent="0">This document introduces Timed Efficient Stream Loss-tolerant
+                            Authentication (TESLA).  TESLA allows all receivers to check the
+                            integrity and authenticate the source of each packet in multicast or
+                            broadcast data streams.  TESLA requires no trust between receivers,
+                            uses low-cost operations per packet at both sender and receiver, can
+                            tolerate any level of loss without retransmissions, and requires no
+                            per-receiver state at the sender.  TESLA can protect receivers
+                            against denial of service attacks in certain circumstances.  Each
+                            receiver must be loosely time-synchronized with the source in order
+                            to verify messages, but otherwise receivers do not have to send any
+                            messages.  TESLA alone cannot support non-repudiation of the data
+                            source to third parties.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="4082"/>
+          <seriesInfo name="DOI" value="10.17487/RFC4082"/>
+    </reference>
+ 
+
+    <reference anchor="RFC5905" target="https://www.rfc-editor.org/info/rfc5905" quoteTitle="true" derivedAnchor="RFC5905">
+          <front>
+            <title>Network Time Protocol Version 4: Protocol and Algorithms Specification</title>
+            <author initials="D." surname="Mills" fullname="D. Mills">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="J." surname="Martin" fullname="J. Martin" role="editor">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="J." surname="Burbank" fullname="J. Burbank">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="W." surname="Kasch" fullname="W. Kasch">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <date year="2010" month="June"/>
+            <abstract>
+              <t indent="0">The Network Time Protocol (NTP) is widely used to synchronize computer clocks in the Internet.  This document describes NTP version 4 (NTPv4), which is backwards compatible with NTP version 3 (NTPv3), described in RFC 1305, as well as previous versions of the protocol. NTPv4 includes a modified protocol header to accommodate the Internet Protocol version 6 address family.  NTPv4 includes fundamental improvements in the mitigation and discipline algorithms that extend the potential accuracy to the tens of microseconds with modern workstations and fast LANs.  It includes a dynamic server discovery scheme, so that in many cases, specific server configuration is not required.  It corrects certain errors in the NTPv3 design and implementation and includes an optional extension mechanism.   [STANDARDS-TRACK]</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="5905"/>
+          <seriesInfo name="DOI" value="10.17487/RFC5905"/>
+    </reference>
+ 
+ 
+    <reference anchor="RFC6960" target="https://www.rfc-editor.org/info/rfc6960" quoteTitle="true" derivedAnchor="RFC6960">
+          <front>
+            <title>X.509 Internet Public Key Infrastructure Online Certificate Status Protocol - OCSP</title>
+            <author initials="S." surname="Santesson" fullname="S. Santesson">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="M." surname="Myers" fullname="M. Myers">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="R." surname="Ankney" fullname="R. Ankney">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="A." surname="Malpani" fullname="A. Malpani">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="S." surname="Galperin" fullname="S. Galperin">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <author initials="C." surname="Adams" fullname="C. Adams">
+              <organization showOnFrontPage="true"/>
+            </author>
+            <date year="2013" month="June"/>
+            <abstract>
+              <t indent="0">This document specifies a protocol useful in determining the current status of a digital certificate without requiring Certificate Revocation Lists (CRLs). Additional mechanisms addressing PKIX operational requirements are specified in separate documents.  This document obsoletes RFCs 2560 and 6277.  It also updates RFC 5912.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="6960"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6960"/>
+    </reference>
+ 
+
+    <reference anchor="IEEE1588-2019" >
+         <front>
+             <title>IEEE Standard for a Precision Clock Synchronization Protocol for Networked Measurement and Control Systems</title>
+             <author >
+                 <organization>Institute of Electrical and Electronics Engineers - IEEE Standards Association</organization>
+             </author>
+             <date year="2019"/>
+         </front>
+         <seriesInfo name="IEEE" value="Standard 1588-2019"/>
+    </reference>
+	
+    <reference anchor="fiPS-PUB-198-1" >
+         <front>
+             <title>The Keyed-Hash Message Authentication Code (HMAC)</title>
+             <author >
+                 <organization>National Institute of Standards and Technology (NIST)</organization>
+             </author>
+             <date year="2008"/>
+         </front>
+         <seriesInfo name="NIST" value="fiPS PUB 198-1"/>
+    </reference>
+
+    <reference anchor="ITU-T_X.509" >
+         <front>
+             <title>Information technology – Open systems interconnection – The Directory: Public-key and attribute certificate frameworks</title>
+             <author >
+                 <organization>International Telecommunication Union (ITU)</organization>
+             </author>
+             <date month="November" year="2008"/>
+         </front>
+         <seriesInfo name="ITU-T Recommendation" value="X.509 (2008)"/>
+    </reference>
+
+    <reference anchor="IANA AEAD" 
+	           target="https://www.iana.org/assignments/aead-parameters/aead-parameters.xhtml">
+         <front>
+             <title>Authenticated Encryption with Associated Data (AEAD) Parameters</title>
+             <author>
+                 <organization>Internet Assigned Numbers Authority (IANA</organization>
+             </author>
+             <date month="December" year="2022"/>
+         </front>
+         <seriesInfo name="IANA" value="AEAD Parameters (2022)"/>
+    </reference>
+
+
+	
+    </references>
+
+
+   <references title='Informative References'>
+
+	&RFC4493;
+	&RFC5297;
+
+<!--	<reference anchor="RFC6479" target="https://www.rfc-editor.org/info/rfc6479">
+		<front>
+			<title>IPsec Anti-Replay Algorithm without Bit Shifting</title>
+			<author fullname="X. Zhang" initials="X." surname="Zhang"/>
+			<author fullname="T. Tsou" initials="T." surname="Tsou"/>
+			<date month="January" year="2012"/>
+			<abstract>
+			<t>This document presents an alternate method to do the anti-replay checks and 
+			updates for IP Authentication Header (AH) and Encapsulating Security Protocol (ESP). 
+			The method defined in this document obviates the need for bit shifting and it reduces 
+			the number of times an anti-replay window is adjusted. This document is not an Internet 
+			Standards Track specification; it is published for informational purposes.</t>
+			</abstract>
+		</front>
+			<seriesInfo name="RFC" value="6479"/>
+			<seriesInfo name="DOI" value="10.17487/RFC6479"/>
+	</reference>
+-->
+
+      <reference anchor="Langer_2023"
+                 target="https://leopard.tu-braunschweig.de/servlets/MCRFileNodeServlet/dbbs_derivate_00053439/Diss_Langer_Martin.pdf">
+        <front>
+          <title>Secured Time Synchronization Using Packet-Based Time Protocols</title>
+
+            <author initials="M" surname="Langer" fullname="Martin Langer">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+          <date month="June" year="2023"/>
+        </front>
+		  <seriesInfo name="Dissertation, Technical University Braunschweig," value="Germany"/>
+       </reference>       
+
+
+      <reference anchor="Langer_et_al._2019"
+                 target="https://ieeexplore.ieee.org/document/8886633">
+        <front>
+          <title>Guards and Watchdogs in One-Way Synchronization with Delay-Related Authentication Mechanisms</title>
+
+            <author initials="M" surname="Langer" fullname="Martin Langer">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+   		    <author initials="K" surname="Teichel" fullname="Kristof teichel">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+   		    <author initials="K" surname="Heine" fullname="Kai Heine">
+			   <organization>Ostfalia University of Applied Sciences</organization>
+			   </author>
+   		    <author initials="D" surname="Sibold" fullname="Dieter Sibold">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+   		    <author initials="R" surname="Bermbach" fullname="Rainer Bermbach">
+               <organization>Ostfalia University of Applied Sciences</organization>
+            </author>
+
+          <date month="September" year="2019"/>
+        </front>
+		  <seriesInfo name="2019 IEEE International Symposium on Precision Clock Synchronization 
+		                    for Measurement, Control, and Communication (ISPCS)," value="Portland, Oregon, USA"/>
+          <seriesInfo name="DOI" value="10.1109/ISPCS.2019.8886633"/>
+      </reference>       
+
+
+      <reference anchor="Langer_et_al._2022"
+                 target="https://www.sciencedirect.com/science/article/pii/S1389128622002158">
+        <front>
+          <title>A comprehensive key management solution for PTP networks</title>
+
+            <author initials="M" surname="Langer" fullname="Martin Langer">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+    		<author initials="R" surname="Bermbach" fullname="Rainer Bermbach">
+               <organization>Ostfalia University of Applied Sciences</organization>
+            </author>
+
+          <date month="June" year="2022"/>
+        </front>
+		  <seriesInfo name="Computer Networks," value="Volume 213 (2022), 109075"/>
+          <seriesInfo name="DOI" value="10.1016/j.comnet.2022.109075"/>
+      </reference>       
+
+
+      <reference anchor="Langer_et_al._2020"
+                 target="https://ieeexplore.ieee.org/document/9314809">
+        <front>
+          <title>A Network Time Security Based Automatic Key Management for PTPv2.1</title>
+
+            <author initials="M" surname="Langer" fullname="Martin Langer">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+   		    <author initials="K" surname="Heine" fullname="Kai Heine">
+			   <organization>Ostfalia University of Applied Sciences</organization>
+			   </author>
+   		    <author initials="D" surname="Sibold" fullname="Dieter Sibold">
+			   <organization>Physikalisch-Technische Bundesanstalt (PTB)</organization>
+			   </author>
+   		    <author initials="R" surname="Bermbach" fullname="Rainer Bermbach">
+               <organization>Ostfalia University of Applied Sciences</organization>
+            </author>
+
+          <date month="November" year="2020"/>
+        </front>
+		  <seriesInfo name="2020 IEEE 45th Conference on Local Computer Networks (LCN)," value="Sydney, Australia"/>
+          <seriesInfo name="DOI" value="10.1109/LCN48667.2020.9314809"/>
+      </reference>       
+
+    </references>	
+ 
+
+
+  </back>
+ 
+  
+</rfc>
